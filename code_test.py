@@ -1,13 +1,13 @@
 import os
+from box import Box
 import rioxarray as rxr
 import earthpy as et
 
 import rasterio
 from rasterio.plot import show as sh
+import yaml
 
-img = rasterio.open(
-    '/home/svkohler/OneDrive/Desktop/Masterthesis/Data/Sentinel_SR_image_2018.tif')
-sh(img.read([1, 2, 3, 4]))
+config = Box.from_yaml(
+    filename="/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForrest/configs/config.yaml")
 
-
-print(img.height, img.width, img.count)
+print(config)

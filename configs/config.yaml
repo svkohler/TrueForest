@@ -1,0 +1,88 @@
+# Data storage
+data_store: "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForrest/data"
+
+# use near infrared channel
+NIR: true
+
+#----------------------
+
+# Data preprocessing
+
+# resolutions m/px
+NAIP_resolution: 1
+Sentinel_resolution: 10
+
+# --------------------------
+
+# Model name
+model_name: "deeplabv3"
+checkpoint_name: "kaggle"
+
+# if run is to pretrain
+pretrain: False
+
+# if mixed dataset is used
+mixed_train: False
+
+# Number of classes for segmentation
+num_classes: 2
+
+# Set seed for reproducability
+seed_run: 1
+seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
+
+# Batch size for training (change depending on how much memory you have)
+batch_size: 5
+
+# Viusualize model output
+visualize_model_output: False
+visualize_time: 600
+
+# Number of epochs to train for
+num_epochs: 100
+
+# Proportion of the dataset used for validation split
+use_train_val_split: False
+val_size: 0.1
+
+# Continue training
+continue_training: False
+continue_training_on_checkpoint: "deeplab_dice"
+
+# Configure transforms
+transforms:
+  apply_test_transforms: True
+  apply_transforms: True
+  crop_size: 280
+  flip_prob: 0.5
+  rot_prob: 0.25
+  canny: False
+  canny_filter_size: 5
+  canny_thresh: 250
+
+#morphological postprocessing
+morph:
+  apply: True
+  area_closing: True
+  area_opening: True
+  binary_closing: True
+  iter: 1
+
+# loss
+loss:
+  # Select desired loss
+  # options: ["bce", "dice", "cl_dice", "focal"]
+  name: "dice"
+  patched_loss: True
+  iter: 40
+  alpha: 0.5
+  smooth: 1
+  bce_weight: 0.0
+  only_foreground: True
+
+# lr
+lr:
+  init_lr: 0.0001
+  lr_policy: "step" # options: ["none", linear", "step", "plateau"]
+
+best_epoch: None

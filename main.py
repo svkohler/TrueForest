@@ -12,3 +12,9 @@ def check_venv(venv='mt_env'):
 
 
 check_venv()
+
+# dataset = dataloader
+
+# model = load model
+
+# model.train()
