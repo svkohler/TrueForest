@@ -7,7 +7,15 @@ import rasterio
 from rasterio.plot import show as sh
 import yaml
 
-config = Box.from_yaml(
-    filename="/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForrest/configs/config.yaml")
 
-print(config)
+class User:
+    id = 1
+    name: str = 'John Doe'
+
+    def pr():
+        print(id, name)
+
+
+user = User()
+user.pr()
+print(user.id)

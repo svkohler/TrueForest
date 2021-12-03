@@ -1,8 +1,31 @@
 # Data storage
-data_store: "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForrest/data"
+data_store: "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data"
 
 # use near infrared channel
-NIR: true
+NIR: false
+
+# model specifications
+model_name: "SimSiam"
+base_architecture:
+  "resnet50" # check for whole list: sorted(name for name in models.__dict__
+  #  if name.islower() and not name.startswith("__")
+  #  and callable(models.__dict__[name]))
+num_features: 2048 # size of feature vector which is extracted
+
+# training parameter
+num_epochs: 12
+batch_size: 8
+shuffle: True
+num_workers: 1
+pin_memory: True
+
+# learning rate schedule
+init_lr: 0.0001
+weight_decay: 1e-4
+momentum: 1e-4
+
+# log
+print_freq: 10
 
 #----------------------
 
@@ -15,7 +38,6 @@ Sentinel_resolution: 10
 # --------------------------
 
 # Model name
-model_name: "deeplabv3"
 checkpoint_name: "kaggle"
 
 # if run is to pretrain
@@ -31,15 +53,9 @@ num_classes: 2
 seed_run: 1
 seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
 
-# Batch size for training (change depending on how much memory you have)
-batch_size: 5
-
 # Viusualize model output
 visualize_model_output: False
 visualize_time: 600
-
-# Number of epochs to train for
-num_epochs: 100
 
 # Proportion of the dataset used for validation split
 use_train_val_split: False

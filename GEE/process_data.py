@@ -3,11 +3,14 @@ from box import Box
 import numpy as np
 from PIL import Image
 import os
+import sys
 import scipy
 import scipy.ndimage
+from skimage import io
 import yaml
 import argparse
 from tqdm import tqdm
+from tif_to_png import tif2png
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--patch_size',
@@ -19,7 +22,7 @@ args = parser.parse_args()
 # load config
 try:
     config = Box.from_yaml(
-        filename="/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForrest/configs/config.yaml")
+        filename="/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/configs/custom.yaml")
 except:
     raise OSError("Does not exist")
 
@@ -27,48 +30,41 @@ NAIP_resolution = config.NAIP_resolution
 Sentinel_resolution = config.Sentinel_resolution
 
 # patch size in meters
-patch_size = args.patch_size
+patch_size = int(args.patch_size)
 
 # load images
+Image.MAX_IMAGE_PIXELS = 9999999999
 
-sentinel_rgb = Image.open(
-    config.data_store + '/raw/Sentinel_SR_image_2018_RGB.tif')
-sentinel_nir = Image.open(
-    config.data_store + '/raw/Sentinel_SR_image_2018_NIR.tif')
-print('Succesfully loaded Sentinel images. Shape: ', sentinel_rgb.size)
-# naip = io.imread(config.data_store + 'raw/NAIP_image_2018.tif')
-# print('Succesfully loaded NAIP images. Shape: ', naip.shape)
+# get the list of naip, sentinel_RGB, sentinel_NIR image patches
+naip_patches = os.listdir(config.data_store + '/raw/NAIP')
+sentinel_RGB_patches = os.listdir(config.data_store + '/raw/Sentinel_RGB')
+sentinel_NIR_patches = os.listdir(config.data_store + '/raw/Sentinel_NIR')
+# extract coordinates from image path to later match against
+sentinel_RGB_coordinates = [
+    patch[19:len(patch)-4] for patch in sentinel_RGB_patches]
+sentinel_NIR_coordinates = [
+    patch[19:len(patch)-4] for patch in sentinel_NIR_patches]
 
-# buckets to collect images
-sentinel_crop = []
-naip_crop = []
+# loop over naip image patches and search for the corresponding sentinel satellite patch
+converter = tif2png()
+for patch in naip_patches:
+    # get naip coordinated
+    coordinates = patch[11:len(patch)-4]
+    # find the indices of the corresponding sentinel images
+    idx_RGB = sentinel_RGB_coordinates.index(coordinates)
+    idx_NIR = sentinel_NIR_coordinates.index(coordinates)
 
-# define function to extract image patches
+    # read the images
+    naip = Image.fromarray(
+        np.uint8(io.imread(config.data_store + '/raw/NAIP/'+patch))[:, :, :3])
+    sentinel_rgb = Image.fromarray(np.uint8(io.imread(
+        config.data_store + '/raw/Sentinel_RGB/'+sentinel_RGB_patches[idx_RGB])))
+    sentinel_nir = Image.fromarray(np.uint8(io.imread(
+        config.data_store + '/raw/Sentinel_NIR/'+sentinel_NIR_patches[idx_NIR])))
 
+    print('Loaded coordiantes: ', coordinates)
 
-def tif_images(naip, sentinel, patch_size, res_naip, res_sentinel):
-    nr_images = int(naip.size[0]/patch_size)
-    patch_size_naip = int(patch_size / res_naip)
-    patch_size_sentinel = int(patch_size / res_sentinel)
+    converter(config, naip, sentinel_rgb, sentinel_nir, patch_size,
+              NAIP_resolution, Sentinel_resolution)
 
-    if not os.path.exists(config.data_store+'/satellite'):
-        os.makedirs(config.data_store+'/satellite')
-
-    if not os.path.exists(config.data_store+'/drone'):
-        os.makedirs(config.data_store+'/drone')
-
-    for i in tqdm(range(0, nr_images)):
-
-        naip_crop = naip.crop((i*patch_size_naip, i*patch_size_naip,
-                               patch_size_naip + i*patch_size_naip, patch_size_naip+i*patch_size_naip))
-
-        sentinel_crop = sentinel.crop((i*patch_size_sentinel, i*patch_size_sentinel,
-                                       patch_size_sentinel+i * patch_size_sentinel, patch_size_sentinel+i*patch_size_sentinel)).resize((patch_size, patch_size))
-
-        sentinel_crop.save(config.data_store+'/satellite/satellite_' +
-                           str(i)+'.png')
-        naip_crop.save(config.data_store+'/drone/drone_'+str(i)+'.png')
-
-
-tif_images(sentinel_rgb, sentinel_rgb, patch_size,
-           NAIP_resolution, Sentinel_resolution)
+    print('Succesfully cropped coordiantes: ', coordinates)
