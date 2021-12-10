@@ -48,13 +48,14 @@ model, trainer = load_model(config, dataloader, device)
 
 # initiate parallel GPUs
 print("You have ", torch.cuda.device_count(), "GPUs available.")
-if torch.cuda.device_count() > 1:
-    model = nn.DataParallel(model)
 
+# wrap model for multiple GPU usage
+model = nn.DataParallel(model)
+
+# send model to GPU
 model.to(device)
 
-trainer.train(model)
-
 # train the model
+trainer.train(model)
 
 print('Successful.')

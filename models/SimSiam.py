@@ -62,6 +62,3 @@ class SimSiam(nn.Module):
         p2 = self.predictor(z2)  # NxC
 
         return p1, p2, z1.detach(), z2.detach()
-
-    def train():
-        pass
