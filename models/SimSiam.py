@@ -55,6 +55,7 @@ class SimSiam(nn.Module):
         """
 
         # compute features for one view
+        # here when evaluating z1, z2 are used
         z1 = self.encoder(x1)  # NxC
         z2 = self.encoder(x2)  # NxC
 

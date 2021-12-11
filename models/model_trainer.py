@@ -10,7 +10,10 @@ from utils import LARC
 import numpy as np
 import math
 import torch.distributed as dist
+import apex
 
+
+# ------------------- SimSiam trainer -------------------- #
 
 class SimSiam_trainer(object):
     def __init__(self, config, dataloader, device, fix_pred_lr=True):
@@ -20,24 +23,32 @@ class SimSiam_trainer(object):
         self.dataloader = dataloader
 
     def train(self, model):
+        # define the loss criterion
         self.criterion = nn.CosineSimilarity(dim=1)
+        # fix learning rate of the predictor
         if self.fix_pred_lr:
             optim_params = [{'params': model.encoder.parameters(), 'fix_lr': False},
                             {'params': model.predictor.parameters(), 'fix_lr': True}]
         else:
             optim_params = model.parameters()
 
+        # define the optimizer
         self.optimizer = torch.optim.SGD(optim_params, self.config.init_lr,
                                          momentum=self.config.momentum,
                                          weight_decay=self.config.weight_decay)
 
+        # define the scaler for mixed precision
         scaler = GradScaler(enabled=self.config.fp16_precision)
 
+        # check for optimal backend
         torch.backends.cudnn.benchmark = True
 
+        # put model in training mode
         model.train()
 
+        #  *** main training loop ***
         for epoch in range(self.config.num_epochs):
+            # initialize meters to keep track of stats
             batch_time = AverageMeter('Time', ':6.3f')
             data_time = AverageMeter('Data', ':6.3f')
             losses = AverageMeter('Loss', ':.4f')
@@ -47,6 +58,8 @@ class SimSiam_trainer(object):
                 prefix="Epoch: [{}]".format(epoch))
 
             end = time.time()
+
+            # loop through batches
             for i, (satellite, drone) in enumerate(self.dataloader):
                 # send data to GPU
                 satellite = satellite.to(self.device)
@@ -77,6 +90,8 @@ class SimSiam_trainer(object):
                     progress.display(i)
 
 
+# ------------------- SimCLR trainer -------------------- #
+
 class SimCLR_trainer(object):
 
     def __init__(self, config, dataloader, device):
@@ -87,26 +102,14 @@ class SimCLR_trainer(object):
 
     def info_nce_loss(self, features_d, features_sat):
 
-        # labels = torch.cat([torch.arange(self.args.batch_size)
-        #                    for i in range(self.args.n_views)], dim=0)
-        # labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
-        # labels = labels.to(self.args.device)
-
         features_d = F.normalize(features_d, dim=1)
         features_sat = F.normalize(features_sat, dim=1)
 
         similarity_matrix = torch.matmul(features_d, features_sat.T)
-        # assert similarity_matrix.shape == (
-        #     self.args.n_views * self.args.batch_size, self.args.n_views * self.args.batch_size)
-        # assert similarity_matrix.shape == labels.shape
 
         # discard the main diagonal from both: labels and similarities matrix
         mask = torch.eye(similarity_matrix.shape[0], dtype=torch.bool).to(
             self.device)
-        # labels = labels[~mask].view(labels.shape[0], -1)
-        # similarity_matrix = similarity_matrix[~mask].view(
-        #     similarity_matrix.shape[0], -1)
-        # assert similarity_matrix.shape == labels.shape
 
         # select and combine multiple positives
         positives = similarity_matrix[mask.bool()].view(
@@ -125,18 +128,25 @@ class SimCLR_trainer(object):
 
     def train(self, model):
 
+        # define the optimizer
         self.optimizer = torch.optim.Adam(
             model.parameters(), self.config.init_lr, weight_decay=self.config.weight_decay)
 
+        # define learning rate scheduler
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=len(self.dataloader), eta_min=0,
                                                                     last_epoch=-1)
+        # define scaler for mixed precision
         scaler = GradScaler(enabled=self.config.fp16_precision)
 
+        # check for optimal backend
         torch.backends.cudnn.benchmark = True
 
+        # put model in training mode
         model.train()
 
+        #  *** main training loop ***
         for epoch in range(self.config.num_epochs):
+            # initialize meters to keep track of stats
             batch_time = AverageMeter('Time', ':6.3f')
             data_time = AverageMeter('Data', ':6.3f')
             losses = AverageMeter('Loss', ':.4f')
@@ -147,6 +157,8 @@ class SimCLR_trainer(object):
                 prefix="Epoch: [{}]".format(epoch))
 
             end = time.time()
+
+            # loop through batches
             for i, (satellite, drone) in enumerate(self.dataloader):
                 # send data to GPU
                 drone = drone.to(self.device)
@@ -155,6 +167,7 @@ class SimCLR_trainer(object):
                 # measure data loading time
                 data_time.update(time.time() - end)
 
+                # compute output and loss
                 with autocast(enabled=self.config.fp16_precision):
                     features_d = model(drone)
                     features_sat = model(satellite)
@@ -185,6 +198,92 @@ class SimCLR_trainer(object):
                 self.scheduler.step()
 
 
+# ------------------- BYOL trainer -------------------- #
+
+class BYOL_trainer(object):
+
+    def __init__(self, config, dataloader, device):
+        self.config = config
+        self.dataloader = dataloader
+        self.device = device
+
+    def loss_fn(self, x, y):
+        x = F.normalize(x, dim=-1, p=2)
+        y = F.normalize(y, dim=-1, p=2)
+        return 2 - 2 * (x * y).sum(dim=-1)
+
+    def train(self, model):
+
+        # define the optimizer
+        self.optimizer = torch.optim.Adam(
+            model.parameters(), self.config.init_lr, weight_decay=self.config.weight_decay)
+
+        # define scaler for mixed precision
+        scaler = GradScaler(enabled=self.config.fp16_precision)
+
+        # check for optimal backend
+        torch.backends.cudnn.benchmark = True
+
+        # put model in training mode
+        model.train()
+
+        #  *** main training loop ***
+        for epoch in range(self.config.num_epochs):
+            # initialize meters to keep track of stats
+            batch_time = AverageMeter('Time', ':6.3f')
+            data_time = AverageMeter('Data', ':6.3f')
+            losses = AverageMeter('Loss', ':.4f')
+            acc = AverageMeter('Accuracy', ':.4f')
+            progress = ProgressMeter(
+                len(self.dataloader),
+                [batch_time, data_time, losses, acc],
+                prefix="Epoch: [{}]".format(epoch))
+
+            end = time.time()
+
+            # loop through batches
+            for i, (satellite, drone) in enumerate(self.dataloader):
+                # send data to GPU
+                drone = drone.to(self.device)
+                satellite = satellite.to(self.device)
+
+                # measure data loading time
+                data_time.update(time.time() - end)
+
+                # compute output and loss
+                with autocast(enabled=self.config.fp16_precision):
+                    online_pred_drone, target_proj_drone = model(drone)
+                    online_pred_satellite, target_proj_satellite = model(
+                        satellite)
+                    loss_one = self.loss_fn(
+                        online_pred_drone, target_proj_satellite.detach())
+                    loss_two = self.loss_fn(
+                        online_pred_satellite, target_proj_drone.detach())
+
+                    loss = (loss_one + loss_two).mean()
+
+                losses.update(loss.item(), satellite.size(0))
+
+                self.optimizer.zero_grad()
+
+                scaler.scale(loss).backward()
+
+                scaler.step(self.optimizer)
+                scaler.update()
+                model.module.update_moving_average()
+
+                # measure elapsed time
+                batch_time.update(time.time() - end)
+                end = time.time()
+
+            # warmup for the first 10 epochs
+            if epoch >= 10:
+                self.scheduler.step()
+
+
+# ------------------- SwAV trainer -------------------- #
+
+
 class SwAV_trainer(object):
 
     def __init__(self, config, dataloader, device):
@@ -194,6 +293,7 @@ class SwAV_trainer(object):
 
     def train(self, model):
 
+        # define optimizer
         optimizer = torch.optim.SGD(
             model.parameters(),
             lr=self.config.init_lr,
@@ -201,9 +301,11 @@ class SwAV_trainer(object):
             weight_decay=self.config.weight_decay,
         )
 
-        optimizer = LARC(optimizer=optimizer,
-                         trust_coefficient=0.001, clip=False)
+        # wrap optimzer in LARC module
+        self.optimizer = LARC(optimizer=optimizer,
+                              trust_coefficient=0.001, clip=False)
 
+        # define the learning rate scheduler
         warmup_lr_schedule = np.linspace(
             self.config.init_warm_up_lr, self.config.init_lr, len(self.dataloader) * self.config.warm_up_epochs)
         iters = np.arange(len(self.dataloader) *
@@ -213,9 +315,7 @@ class SwAV_trainer(object):
         self.scheduler = np.concatenate(
             (warmup_lr_schedule, cosine_lr_schedule))
 
-        scaler = GradScaler(enabled=self.config.fp16_precision)
-
-        # build the queue
+        # build the queue to increase number of examples used for cluster assignment
         queue = None
         queue_path = os.path.join(self.config.dump_path, "SwAV_queue.pth")
         if os.path.isfile(queue_path):
@@ -224,11 +324,15 @@ class SwAV_trainer(object):
         self.config.queue_length -= self.config.queue_length % (
             self.config.batch_size)
 
+        # check for optimal backend
         torch.backends.cudnn.benchmark = True
 
+        # put model into training mode
         model.train()
 
+        #  *** main training loop ***
         for epoch in range(self.config.num_epochs):
+            # initialize meters to keep track of stats
             batch_time = AverageMeter('Time', ':6.3f')
             data_time = AverageMeter('Data', ':6.3f')
             losses = AverageMeter('Loss', ':.4f')
@@ -241,16 +345,23 @@ class SwAV_trainer(object):
             if self.config.queue_length > 0 and epoch >= self.config.epoch_queue_starts and queue is None:
                 queue = self.init_queue()
 
+            # set flag
             use_the_queue = False
 
             end = time.time()
+
+            # loop through batches
             for i, (satellite, drone) in enumerate(self.dataloader):
+                # send data to GPU
+                drone = drone.to(self.device)
+                satellite = satellite.to(self.device)
+
                 # measure data loading time
                 data_time.update(time.time() - end)
 
                 # update learning rate
                 iteration = epoch * len(self.dataloader) + i
-                for param_group in optimizer.param_groups:
+                for param_group in self.optimizer.param_groups:
                     param_group["lr"] = self.scheduler[iteration]
 
                 # normalize the prototypes
@@ -259,18 +370,15 @@ class SwAV_trainer(object):
                     w = nn.functional.normalize(w, dim=1, p=2)
                     model.module.prototypes.weight.copy_(w)
 
-                # ============ multi-res forward passes ... ============
+                # compute embeddings and cluster assignments
                 embedding_drone, output_drone = model(drone)
                 embedding_sat, output_sat = model(satellite)
 
-                print('embeddings shape: ', embedding_drone.shape)
-                print('output shape: ', output_drone.shape)
-
+                # combine model outputs
                 embedding = torch.zeros(
                     self.config.batch_size*2, self.config.num_features)
                 output = torch.zeros(
                     self.config.batch_size*2, self.config.num_prototypes)
-
                 embedding[::2, :] = embedding_drone
                 embedding[1::2, :] = embedding_sat
                 output[::2, :] = output_drone
@@ -279,98 +387,65 @@ class SwAV_trainer(object):
                 embedding = embedding.detach()
                 output = output.detach()
 
+                # save batch size
                 bs = self.config.batch_size
 
-                # ============ swav loss ... ============
-                loss = 0
-                for i, crop_id in enumerate([0, 1]):
+                # compute the SwAV loss
+                loss = torch.tensor(
+                    0, dtype=torch.float64, requires_grad=True).to(self.device)
+                for j, crop_id in enumerate([0, 1]):
                     with torch.no_grad():
-                        out = output[bs * crop_id: bs * (crop_id + 1)].detach()
-
+                        out = output[bs * crop_id: bs *
+                                     (crop_id + 1)].detach().to(self.device)
                         # time to use the queue
                         if queue is not None:
-                            if use_the_queue or not torch.all(queue[i, -1, :] == 0):
+                            if use_the_queue or not torch.all(queue[j, -1, :] == 0):
                                 use_the_queue = True
                                 out = torch.cat((torch.mm(
-                                    queue[i],
+                                    queue[j],
                                     model.module.prototypes.weight.t()
                                 ), out))
                             # fill the queue
-                            queue[i, bs:] = queue[i, :-bs].clone()
-                            queue[i, :bs] = embedding[crop_id *
+                            queue[j, bs:] = queue[j, :-bs].clone()
+                            queue[j, :bs] = embedding[crop_id *
                                                       bs: (crop_id + 1) * bs]
 
                         # get assignments
-                        q = self.distributed_sinkhorn(out)[-bs:]
+                        q = self.distributed_sinkhorn(
+                            out)[-bs:].to(self.device)
 
                     # cluster assignment prediction
-                    subloss = 0
-                    for v in np.delete(np.arange(np.sum(args.nmb_crops)), crop_id):
-                        x = output[bs * v: bs * (v + 1)] / args.temperature
+                    subloss = torch.tensor(
+                        0, dtype=torch.float64, requires_grad=True).to(self.device)
+                    for v in np.delete(np.arange(2), crop_id):
+                        x = output[bs * v: bs *
+                                   (v + 1)].to(self.device) / self.config.temperature
                         subloss -= torch.mean(torch.sum(q *
-                                              F.log_softmax(x, dim=1), dim=1))
-                    loss += subloss / (np.sum(args.nmb_crops) - 1)
-                loss /= len(args.crops_for_assign)
+                                                        F.log_softmax(x, dim=1), dim=1))
+                    loss += subloss / (np.sum(2) - 1)
+                loss /= len([0, 1])
 
-                # ============ backward and optim step ... ============
-                optimizer.zero_grad()
-                if args.use_fp16:
-                    with apex.amp.scale_loss(loss, optimizer) as scaled_loss:
-                        scaled_loss.backward()
-                else:
-                    loss.backward()
-                # cancel gradients for the prototypes
-                if iteration < args.freeze_prototypes_niters:
+                losses.update(loss.item(), self.config.batch_size)
+
+                self.optimizer.zero_grad()
+
+                loss.backward()
+
+                # cancel gradients for the prototypes at the beginning
+                if iteration < self.config.freeze_prototypes_niters:
                     for name, p in model.named_parameters():
                         if "prototypes" in name:
                             p.grad = None
-                optimizer.step()
 
-                # ============ misc ... ============
-                losses.update(loss.item(), inputs[0].size(0))
+                self.optimizer.step()
+
+                # measure elapsed time
                 batch_time.update(time.time() - end)
                 end = time.time()
-                if args.rank == 0 and it % 50 == 0:
-                    logger.info(
-                        "Epoch: [{0}][{1}]\t"
-                        "Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t"
-                        "Data {data_time.val:.3f} ({data_time.avg:.3f})\t"
-                        "Loss {loss.val:.4f} ({loss.avg:.4f})\t"
-                        "Lr: {lr:.4f}".format(
-                            epoch,
-                            it,
-                            batch_time=batch_time,
-                            data_time=data_time,
-                            loss=losses,
-                            lr=optimizer.optim.param_groups[0]["lr"],
-                        )
-                    )
-            return (epoch, losses.avg), queue
 
-            # train the network
-            scores, queue = train(train_loader, model,
-                                  optimizer, epoch, lr_schedule, queue)
-            training_stats.update(scores)
+                if i % self.config.print_freq == 0:
+                    progress.display(i)
 
-            # save checkpoints
-            if args.rank == 0:
-                save_dict = {
-                    "epoch": epoch + 1,
-                    "state_dict": model.state_dict(),
-                    "optimizer": optimizer.state_dict(),
-                }
-                if args.use_fp16:
-                    save_dict["amp"] = apex.amp.state_dict()
-                torch.save(
-                    save_dict,
-                    os.path.join(args.dump_path, "checkpoint.pth.tar"),
-                )
-                if epoch % args.checkpoint_freq == 0 or epoch == args.epochs - 1:
-                    shutil.copyfile(
-                        os.path.join(args.dump_path, "checkpoint.pth.tar"),
-                        os.path.join(args.dump_checkpoints,
-                                     "ckp-" + str(epoch) + ".pth"),
-                    )
             if queue is not None:
                 torch.save({"queue": queue}, queue_path)
 
@@ -390,13 +465,13 @@ class SwAV_trainer(object):
 
         # make the matrix sums to 1
         sum_Q = torch.sum(Q)
-        dist.all_reduce(sum_Q)
+        # dist.all_reduce(sum_Q)
         Q /= sum_Q
 
         for it in range(self.config.sinkhorn_iterations):
             # normalize each row: total weight per prototype must be 1/K
             sum_of_rows = torch.sum(Q, dim=1, keepdim=True)
-            dist.all_reduce(sum_of_rows)
+            # dist.all_reduce(sum_of_rows)
             Q /= sum_of_rows
             Q /= K
 

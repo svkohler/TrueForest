@@ -17,12 +17,4 @@ import torchvision.models as models
 
 # print(model_names)
 
-ten = torch.zeros(4, 5)
-
-input = torch.tensor([[1, 1, 1, 1, 1], [2, 2, 2, 2, 2]])
-
-print(input.shape, ten.shape)
-
-ten[::2, :] = input
-
-print(ten)
+print(torch.version.cuda)

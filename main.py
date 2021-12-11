@@ -12,7 +12,7 @@ from torch import nn
 
 # import from other files
 from utils import *
-from models.get_model import *
+from models.load_model import *
 
 
 # parser to select desired
@@ -32,6 +32,10 @@ except:
 
 # check if connected to virtual environment
 check_venv()
+
+#
+if not os.path.exists(config.dump_path):
+    os.makedirs(config.dump_path)
 
 # define the device where computations are run
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

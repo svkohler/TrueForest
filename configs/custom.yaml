@@ -6,7 +6,7 @@ dump_path: "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump" #
 NIR: false
 
 # model specifications
-model_name: "SwAV"
+model_name: "BYOL"
 base_architecture: "resnet50" # choices: resnet50, resnet101, wide_resnet50_2, wide_resnet101_2
 num_features: 2048 # size of feature vector which is extracted
 num_hidden: 512 # size of hidden layer in projection head
@@ -26,6 +26,7 @@ queue_length: 2048
 epsilon: 0.05
 sinkhorn_iterations: 3
 num_prototypes: 3000
+freeze_prototypes_niters: 313
 
 # learning rate schedule
 init_lr: 0.0001
@@ -45,6 +46,7 @@ print_freq: 10
 # resolutions m/px
 NAIP_resolution: 1
 Sentinel_resolution: 10
+image_size: 224
 
 # --------------------------
 

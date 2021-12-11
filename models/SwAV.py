@@ -291,6 +291,7 @@ class ResNetSwAV(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)
 
+        # this is the embedding for later
         if self.eval_mode:
             return x
 
@@ -342,19 +343,3 @@ class MultiPrototypes(nn.Module):
         for i in range(self.nmb_heads):
             out.append(getattr(self, "prototypes" + str(i))(x))
         return out
-
-
-def resnet50(**kwargs):
-    return ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
-
-
-def resnet50w2(**kwargs):
-    return ResNet(Bottleneck, [3, 4, 6, 3], widen=2, **kwargs)
-
-
-def resnet50w4(**kwargs):
-    return ResNet(Bottleneck, [3, 4, 6, 3], widen=4, **kwargs)
-
-
-def resnet50w5(**kwargs):
-    return ResNet(Bottleneck, [3, 4, 6, 3], widen=5, **kwargs)
