@@ -17,4 +17,7 @@ import torchvision.models as models
 
 # print(model_names)
 
-print(torch.version.cuda)
+import torchvision.models as models
+net = models.resnet101()
+
+print(net)

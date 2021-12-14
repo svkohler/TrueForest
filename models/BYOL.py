@@ -1,248 +1,72 @@
-import copy
-import random
-from functools import wraps
-
+import torchvision.models as models
 import torch
 from torch import nn
-import torch.nn.functional as F
-
-from torchvision import transforms as T
-
-# helper functions
 
 
-def default(val, def_val):
-    return def_val if val is None else val
+class MLPHead(nn.Module):
+    def __init__(self, in_channels, mlp_hidden_size, projection_size):
+        super(MLPHead, self).__init__()
 
-
-def flatten(t):
-    return t.reshape(t.shape[0], -1)
-
-
-def singleton(cache_key):
-    def inner_fn(fn):
-        @wraps(fn)
-        def wrapper(self, *args, **kwargs):
-            instance = getattr(self, cache_key)
-            if instance is not None:
-                return instance
-
-            instance = fn(self, *args, **kwargs)
-            setattr(self, cache_key, instance)
-            return instance
-        return wrapper
-    return inner_fn
-
-
-def get_module_device(module):
-    return next(module.parameters()).device
-
-
-def set_requires_grad(model, val):
-    for p in model.parameters():
-        p.requires_grad = val
-
-# loss fn
-
-
-def loss_fn(x, y):
-    x = F.normalize(x, dim=-1, p=2)
-    y = F.normalize(y, dim=-1, p=2)
-    return 2 - 2 * (x * y).sum(dim=-1)
-
-# augmentation utils
-
-
-class RandomApply(nn.Module):
-    def __init__(self, fn, p):
-        super().__init__()
-        self.fn = fn
-        self.p = p
-
-    def forward(self, x):
-        if random.random() > self.p:
-            return x
-        return self.fn(x)
-
-# exponential moving average
-
-
-class EMA():
-    def __init__(self, beta):
-        super().__init__()
-        self.beta = beta
-
-    def update_average(self, old, new):
-        if old is None:
-            return new
-        return old * self.beta + (1 - self.beta) * new
-
-
-def update_moving_average(ema_updater, ma_model, current_model):
-    for current_params, ma_params in zip(current_model.parameters(), ma_model.parameters()):
-        old_weight, up_weight = ma_params.data, current_params.data
-        ma_params.data = ema_updater.update_average(old_weight, up_weight)
-
-# MLP class for projector and predictor
-
-
-class MLP(nn.Module):
-    def __init__(self, dim, projection_size, hidden_size=4096):
-        super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(dim, hidden_size),
-            nn.BatchNorm1d(hidden_size),
+            nn.Linear(in_channels, mlp_hidden_size),
+            nn.BatchNorm1d(mlp_hidden_size),
             nn.ReLU(inplace=True),
-            nn.Linear(hidden_size, projection_size)
+            nn.Linear(mlp_hidden_size, projection_size)
         )
 
     def forward(self, x):
         return self.net(x)
 
-# a wrapper class for the base neural network
-# will manage the interception of the hidden layer output
-# and pipe it into the projecter and predictor nets
+
+class BYOL_Resnet(torch.nn.Module):
+    def __init__(self, base_encoder, config):
+        super(BYOL_Resnet, self).__init__()
+
+        self.base_encoder = base_encoder(
+            pretrained=False, num_classes=config.num_features)
+
+        self.encoder = torch.nn.Sequential(
+            *list(self.base_encoder.children())[:-1])
+
+        self.projection = MLPHead(
+            in_channels=self.base_encoder.fc.in_features, mlp_hidden_size=config.projection_hidden, projection_size=config.projection_size)
+
+    def forward(self, x):
+        h = self.encoder(x)
+        h = h.view(h.shape[0], h.shape[1])
+        return self.projection(h)
 
 
-class NetWrapper(nn.Module):
-    def __init__(self, net, projection_size, projection_hidden_size, layer=-2):
-        super().__init__()
-        # this is the backbone encoder
-        self.net = net
-        # layer for embedding, defined as int or str
-        self.layer = layer
+class BYOL(torch.nn.Module):
+    def __init__(self, base_encoder, config):
+        super(BYOL, self).__init__()
+        self.config = config
+        self.online_encoder = BYOL_Resnet(base_encoder, config)
+        self.target_encoder = BYOL_Resnet(base_encoder, config)
+        self.predictor = MLPHead(
+            in_channels=self.online_encoder.projection.net[-1].out_features, mlp_hidden_size=config.projection_hidden, projection_size=config.projection_size)
 
-        self.projector = None
-        # define parameters of projector
-        self.projection_size = projection_size
-        self.projection_hidden_size = projection_hidden_size
-
-        self.hidden = {}
-        self.hook_registered = False
-
-    def _find_layer(self):
-        if type(self.layer) == str:
-            modules = dict([*self.net.named_modules()])
-            return modules.get(self.layer, None)
-        elif type(self.layer) == int:
-            children = [*self.net.children()]
-            return children[self.layer]
-        return None
-
-    def _hook(self, _, input, output):
-        device = input[0].device
-        self.hidden[device] = flatten(output)
-
-    def _register_hook(self):
-        layer = self._find_layer()
-        assert layer is not None, f'hidden layer ({self.layer}) not found'
-        handle = layer.register_forward_hook(self._hook)
-        self.hook_registered = True
-
-    @singleton('projector')
-    def _get_projector(self, hidden):
-        _, dim = hidden.shape
-        projector = MLP(dim, self.projection_size, self.projection_hidden_size)
-        return projector.to(hidden)
-
-    def get_representation(self, x):
-        if self.layer == -1:
-            return self.net(x)
-
-        if not self.hook_registered:
-            self._register_hook()
-
-        self.hidden.clear()
-        _ = self.net(x)
-        hidden = self.hidden[x.device]
-        self.hidden.clear()
-
-        assert hidden is not None, f'hidden layer {self.layer} never emitted an output'
-        return hidden
-
-    def forward(self, x, return_projection=True):
-        # in evaluation environment return_projection = False
-        representation = self.get_representation(x)
-
-        if not return_projection:
-            return representation
-
-        projector = self._get_projector(representation)
-        projection = projector(representation)
-        return projection, representation
-
-# main class
-
-
-class BYOL(nn.Module):
-    def __init__(
-        self,
-        config,
-        net,
-        hidden_layer=-2,
-        projection_size=256,
-        projection_hidden_size=4096,
-        moving_average_decay=0.99,
-        use_momentum=True
-    ):
-        super().__init__()
-        self.net = net(pretrained=False, num_classes=config.num_features)
-
-        self.online_encoder = NetWrapper(
-            self.net, projection_size, projection_hidden_size, layer=hidden_layer)
-
-        self.use_momentum = use_momentum
-        self.target_encoder = None
-        self.target_ema_updater = EMA(moving_average_decay)
-
-        self.online_predictor = MLP(
-            projection_size, projection_size, projection_hidden_size)
-
-        # get device of network and make wrapper same device
-        device = get_module_device(self.net)
-        self.to(device)
-
-        # send a mock image tensor to instantiate singleton parameters
-        self.forward(torch.randn(2, 3, config.image_size,
-                     config.image_size, device=device))
-
-    @singleton('target_encoder')
-    def _get_target_encoder(self):
-        target_encoder = copy.deepcopy(self.online_encoder)
-        set_requires_grad(target_encoder, False)
-        return target_encoder
-
-    def reset_moving_average(self):
-        del self.target_encoder
-        self.target_encoder = None
-
-    def update_moving_average(self):
-        assert self.use_momentum, 'you do not need to update the moving average, since you have turned off momentum for the target encoder'
-        assert self.target_encoder is not None, 'target encoder has not been created yet'
-        update_moving_average(self.target_ema_updater,
-                              self.target_encoder, self.online_encoder)
-
-    # during evaluation set here return embedding = True and return projection = False
-    def forward(
-        self,
-        x,
-        return_embedding=False,
-        return_projection=True
-    ):
-        assert not (
-            self.training and x.shape[0] == 1), 'you must have greater than 1 sample when training, due to the batchnorm in the projection layer'
-
-        if return_embedding:
-            return self.online_encoder(x, return_projection=return_projection)
-
-        online_proj, _ = self.online_encoder(x)
-
-        online_pred = self.online_predictor(online_proj)
+    def forward(self, x, y):
+        pred_1 = self.predictor(self.online_encoder(x))
+        pred_2 = self.predictor(self.online_encoder(y))
 
         with torch.no_grad():
-            target_encoder = self._get_target_encoder(
-            ) if self.use_momentum else self.online_encoder
-            target_proj, _ = target_encoder(x)
-            target_proj.detach_()
+            target_1 = self.target_encoder(x)
+            target_2 = self.target_encoder(y)
 
-        return online_pred, target_proj
+        return pred_1, pred_2, target_1, target_2
+
+    @torch.no_grad()
+    def _update_target_encoder_params(self):
+        """
+        Momentum update of the key encoder
+        """
+        for param_q, param_k in zip(self.online_encoder.parameters(), self.target_encoder.parameters()):
+            param_k.data = param_k.data * self.config.ema_factor + \
+                param_q.data * (1. - self.config.ema_factor)
+
+    def init_target_encoder(self):
+        # init momentum network as encoder net
+        for param_q, param_k in zip(self.online_encoder.parameters(), self.target_encoder.parameters()):
+            param_k.data.copy_(param_q.data)  # initialize
+            param_k.requires_grad = False  # not update by gradient

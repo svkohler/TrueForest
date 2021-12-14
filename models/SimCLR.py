@@ -1,5 +1,4 @@
 import torch.nn as nn
-import torchvision.models as models
 
 
 class ResNetSimCLR(nn.Module):

@@ -6,11 +6,12 @@ import os
 import sys
 import torch.nn.functional as F
 from torch.cuda.amp import GradScaler, autocast
-from utils import LARC
+from utils import LARC, LARS
 import numpy as np
 import math
 import torch.distributed as dist
 import apex
+from utils import DINOLoss
 
 
 # ------------------- SimSiam trainer -------------------- #
@@ -197,26 +198,50 @@ class SimCLR_trainer(object):
             if epoch >= 10:
                 self.scheduler.step()
 
+# ------------------- MoCo trainer -------------------- #
 
-# ------------------- BYOL trainer -------------------- #
 
-class BYOL_trainer(object):
+class MoCo_trainer(object):
 
     def __init__(self, config, dataloader, device):
         self.config = config
         self.dataloader = dataloader
         self.device = device
+        self.T = 1.0
 
-    def loss_fn(self, x, y):
-        x = F.normalize(x, dim=-1, p=2)
-        y = F.normalize(y, dim=-1, p=2)
-        return 2 - 2 * (x * y).sum(dim=-1)
+    def adjust_learning_rate(self, optimizer, epoch):
+        """Decays the learning rate with half-cycle cosine after warmup"""
+        if epoch < self.config.warm_up_epochs:
+            lr = self.config.init_lr * epoch / self.config.warm_up_epochs
+        else:
+            lr = self.config.init_lr * 0.5 * (1. + math.cos(math.pi * (
+                epoch - self.config.warm_up_epochs) / (self.config.num_epochs - self.config.warm_up_epochs)))
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+        return lr
+
+    def adjust_moco_momentum(self, epoch):
+        """Adjust moco momentum based on current epoch"""
+        m = 1. - 0.5 * (1. + math.cos(math.pi * epoch /
+                        self.config.num_epochs)) * (1. - self.config.ema_factor)
+        return m
+
+    def contrastive_loss(self, q, k):
+        # normalize
+        q = nn.functional.normalize(q, dim=1)
+        k = nn.functional.normalize(k, dim=1)
+        # Einstein sum is more intuitive
+        logits = torch.einsum('nc,mc->nm', [q, k]) / self.T
+        N = logits.shape[0]  # batch size per GPU
+        labels = (torch.arange(N, dtype=torch.long)).cuda()
+        return nn.CrossEntropyLoss()(logits, labels) * (2 * self.T)
 
     def train(self, model):
-
         # define the optimizer
-        self.optimizer = torch.optim.Adam(
-            model.parameters(), self.config.init_lr, weight_decay=self.config.weight_decay)
+
+        self.optimizer = LARS(model.parameters(), lr=self.config.init_lr, weight_decay=self.config.weight_decay,
+                              weight_decay_filter=True,
+                              lars_adaptation_filter=True)
 
         # define scaler for mixed precision
         scaler = GradScaler(enabled=self.config.fp16_precision)
@@ -233,10 +258,117 @@ class BYOL_trainer(object):
             batch_time = AverageMeter('Time', ':6.3f')
             data_time = AverageMeter('Data', ':6.3f')
             losses = AverageMeter('Loss', ':.4f')
-            acc = AverageMeter('Accuracy', ':.4f')
             progress = ProgressMeter(
                 len(self.dataloader),
-                [batch_time, data_time, losses, acc],
+                [batch_time, data_time, losses],
+                prefix="Epoch: [{}]".format(epoch))
+
+            end = time.time()
+
+            # loop through batches
+            for i, (satellite, drone) in enumerate(self.dataloader):
+                # send data to GPU
+                drone = drone.to(self.device)
+                satellite = satellite.to(self.device)
+
+                # measure data loading time
+                data_time.update(time.time() - end)
+
+                lr = self.adjust_learning_rate(self.optimizer, i)
+
+                # compute output and loss
+                with autocast(enabled=self.config.fp16_precision):
+                    query_drone, query_satellite, key_drone, key_satellite = model(
+                        drone, satellite)
+
+                    loss = self.contrastive_loss(
+                        query_drone, key_satellite) + self.contrastive_loss(query_satellite, key_drone)
+
+                losses.update(loss.item(), satellite.size(0))
+
+                self.optimizer.zero_grad()
+
+                scaler.scale(loss).backward()
+
+                scaler.step(self.optimizer)
+                scaler.update()
+
+                # measure elapsed time
+                batch_time.update(time.time() - end)
+                end = time.time()
+
+                if i % self.config.print_freq == 0:
+                    progress.display(i)
+
+            # warmup for the first 10 epochs
+            if epoch >= 10:
+                self.scheduler.step()
+
+
+# ------------------- BarlowTwins trainer -------------------- #
+
+class BarlowTwins_trainer(object):
+
+    def __init__(self, config, dataloader, device):
+        self.config = config
+        self.dataloader = dataloader
+        self.device = device
+
+    def off_diagonal(self, x):
+        # return a flattened view of the off-diagonal elements of a square matrix
+        n, m = x.shape
+        assert n == m
+        return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
+
+    def adjust_learning_rate(self, optimizer, step):
+        max_steps = self.config.num_epochs * len(self.dataloader)
+        warmup_steps = 10 * len(self.dataloader)
+        base_lr = self.config.batch_size / 256
+        if step < warmup_steps:
+            lr = base_lr * step / warmup_steps
+        else:
+            step -= warmup_steps
+            max_steps -= warmup_steps
+            q = 0.5 * (1 + math.cos(math.pi * step / max_steps))
+            end_lr = base_lr * 0.001
+            lr = base_lr * q + end_lr * (1 - q)
+        optimizer.param_groups[0]['lr'] = lr * \
+            self.config.init_lr
+        optimizer.param_groups[1]['lr'] = lr * \
+            self.config.init_lr
+
+    def train(self, model):
+        # define the optimizer
+        param_weights = []
+        param_biases = []
+        for param in model.parameters():
+            if param.ndim == 1:
+                param_biases.append(param)
+            else:
+                param_weights.append(param)
+        parameters = [{'params': param_weights}, {'params': param_biases}]
+        self.optimizer = LARS(parameters, lr=self.config.init_lr, weight_decay=self.config.weight_decay,
+                              weight_decay_filter=True,
+                              lars_adaptation_filter=True)
+
+        # define scaler for mixed precision
+        scaler = GradScaler(enabled=self.config.fp16_precision)
+
+        # check for optimal backend
+        torch.backends.cudnn.benchmark = True
+
+        # put model in training mode
+        model.train()
+
+        #  *** main training loop ***
+        for epoch in range(self.config.num_epochs):
+            # initialize meters to keep track of stats
+            batch_time = AverageMeter('Time', ':6.3f')
+            data_time = AverageMeter('Data', ':6.3f')
+            losses = AverageMeter('Loss', ':.4f')
+            progress = ProgressMeter(
+                len(self.dataloader),
+                [batch_time, data_time, losses],
                 prefix="Epoch: [{}]".format(epoch))
 
             end = time.time()
@@ -252,9 +384,93 @@ class BYOL_trainer(object):
 
                 # compute output and loss
                 with autocast(enabled=self.config.fp16_precision):
-                    online_pred_drone, target_proj_drone = model(drone)
-                    online_pred_satellite, target_proj_satellite = model(
-                        satellite)
+                    pred_drone, pred_satellite = model(drone, satellite)
+                    self.adjust_learning_rate(self.optimizer, i)
+
+                    # empirical cross-correlation matrix
+                    c = model.module.bn(
+                        pred_drone).T @ model.module.bn(pred_satellite)
+
+                    on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
+                    off_diag = self.off_diagonal(c).pow_(2).sum()
+                    loss = on_diag + self.config.epsilon * off_diag
+
+                losses.update(loss.item(), satellite.size(0))
+
+                self.optimizer.zero_grad()
+
+                scaler.scale(loss).backward()
+
+                scaler.step(self.optimizer)
+                scaler.update()
+
+                # measure elapsed time
+                batch_time.update(time.time() - end)
+                end = time.time()
+
+                if i % self.config.print_freq == 0:
+                    progress.display(i)
+
+            # warmup for the first 10 epochs
+            if epoch >= 10:
+                self.scheduler.step()
+
+
+# ------------------- BYOL trainer -------------------- #
+
+class BYOL_trainer(object):
+
+    def __init__(self, config, dataloader, device):
+        self.config = config
+        self.dataloader = dataloader
+        self.device = device
+
+    def loss_fn(self, x, y):
+        x = F.normalize(x, dim=-1, p=2)
+        y = F.normalize(y, dim=-1, p=2)
+        return 2 - 2 * (x * y).sum(dim=-1)
+
+    def train(self, model):
+        # define the optimizer
+        self.optimizer = torch.optim.SGD(list(model.module.online_encoder.parameters()) + list(model.module.predictor.parameters()),
+                                         lr=self.config.init_lr, momentum=self.config.momentum, weight_decay=self.config.weight_decay)
+        # define scaler for mixed precision
+        scaler = GradScaler(enabled=self.config.fp16_precision)
+
+        # check for optimal backend
+        torch.backends.cudnn.benchmark = True
+
+        # put model in training mode
+        model.train()
+
+        model.module.init_target_encoder()
+
+        #  *** main training loop ***
+        for epoch in range(self.config.num_epochs):
+            # initialize meters to keep track of stats
+            batch_time = AverageMeter('Time', ':6.3f')
+            data_time = AverageMeter('Data', ':6.3f')
+            losses = AverageMeter('Loss', ':.4f')
+            progress = ProgressMeter(
+                len(self.dataloader),
+                [batch_time, data_time, losses],
+                prefix="Epoch: [{}]".format(epoch))
+
+            end = time.time()
+
+            # loop through batches
+            for i, (satellite, drone) in enumerate(self.dataloader):
+                # send data to GPU
+                drone = drone.to(self.device)
+                satellite = satellite.to(self.device)
+
+                # measure data loading time
+                data_time.update(time.time() - end)
+
+                # compute output and loss
+                with autocast(enabled=self.config.fp16_precision):
+                    online_pred_drone, target_proj_drone, online_pred_satellite, target_proj_satellite = model(
+                        drone, satellite)
                     loss_one = self.loss_fn(
                         online_pred_drone, target_proj_satellite.detach())
                     loss_two = self.loss_fn(
@@ -270,16 +486,157 @@ class BYOL_trainer(object):
 
                 scaler.step(self.optimizer)
                 scaler.update()
-                model.module.update_moving_average()
+
+                model.module._update_target_encoder_params()
 
                 # measure elapsed time
                 batch_time.update(time.time() - end)
                 end = time.time()
 
+                if i % self.config.print_freq == 0:
+                    progress.display(i)
+
             # warmup for the first 10 epochs
             if epoch >= 10:
                 self.scheduler.step()
 
+
+# ------------------- DINO trainer -------------------- #
+
+
+class DINO_trainer(object):
+
+    def __init__(self, config, dataloader, device):
+        self.config = config
+        self.dataloader = dataloader
+        self.device = device
+
+    def get_params_groups(self, model):
+        regularized = []
+        not_regularized = []
+        for name, param in model.named_parameters():
+            if not param.requires_grad:
+                continue
+            # we do not regularize biases nor Norm parameters
+            if name.endswith(".bias") or len(param.shape) == 1:
+                not_regularized.append(param)
+            else:
+                regularized.append(param)
+        return [{'params': regularized}, {'params': not_regularized, 'weight_decay': 0.}]
+
+    def cosine_scheduler(self, base_value, final_value, epochs, niter_per_ep, warmup_epochs=0, start_warmup_value=0):
+        warmup_schedule = np.array([])
+        warmup_iters = warmup_epochs * niter_per_ep
+        if warmup_epochs > 0:
+            warmup_schedule = np.linspace(
+                start_warmup_value, base_value, warmup_iters)
+
+        iters = np.arange(epochs * niter_per_ep - warmup_iters)
+        schedule = final_value + 0.5 * \
+            (base_value - final_value) * (1 + np.cos(np.pi * iters / len(iters)))
+
+        schedule = np.concatenate((warmup_schedule, schedule))
+        assert len(schedule) == epochs * niter_per_ep
+        return schedule
+
+    def train(self, model):
+        # define criterion
+        criterion = DINOLoss(
+            self.config.projection_size,
+            # total number of crops = 2 global crops + local_crops_number
+            2,
+            0.04,
+            0.04,
+            self.config.warm_up_epochs,
+            self.config.num_epochs,
+        ).cuda()
+
+        # define the optimizer
+        params_groups = self.get_params_groups(model.student)
+        self.optimizer = torch.optim.AdamW(params_groups)
+
+        # define learning rate scheduler
+        lr_schedule = self.cosine_scheduler(
+            self.config.init_lr / 256.,  # linear scaling rule
+            0,
+            self.config.num_epochs, len(self.dataloader),
+            warmup_epochs=self.config.warm_up_epochs,
+        )
+        wd_schedule = self.cosine_scheduler(
+            self.config.weight_decay,
+            0.4,
+            self.config.num_epochs, len(self.dataloader),
+        )
+        momentum_schedule = self.cosine_scheduler(self.config.ema_factor, 1,
+                                                  self.config.num_epochs, len(self.dataloader))
+        # define scaler for mixed precision
+        scaler = GradScaler(enabled=self.config.fp16_precision)
+
+        # check for optimal backend
+        torch.backends.cudnn.benchmark = True
+
+        # put model in training mode
+        model.train()
+
+        #  *** main training loop ***
+        for epoch in range(self.config.num_epochs):
+            # initialize meters to keep track of stats
+            batch_time = AverageMeter('Time', ':6.3f')
+            data_time = AverageMeter('Data', ':6.3f')
+            losses = AverageMeter('Loss', ':.4f')
+            progress = ProgressMeter(
+                len(self.dataloader),
+                [batch_time, data_time, losses],
+                prefix="Epoch: [{}]".format(epoch))
+
+            end = time.time()
+
+            # loop through batches
+            for i, (satellite, drone) in enumerate(self.dataloader):
+                # update weight decay and learning rate according to their schedule
+                it = len(self.dataloader) * epoch + \
+                    it  # global training iteration
+                for i, param_group in enumerate(self.optimizer.param_groups):
+                    param_group["lr"] = lr_schedule[it]
+                    if i == 0:  # only the first group is regularized
+                        param_group["weight_decay"] = wd_schedule[it]
+
+                # send data to GPU
+                drone = drone.to(self.device)
+                satellite = satellite.to(self.device)
+
+                # measure data loading time
+                data_time.update(time.time() - end)
+
+                # compute output and loss
+                with autocast(enabled=self.config.fp16_precision):
+                    teacher_out_drone = model.teacher(drone)
+                    teacher_out_sat = model.teacher(satellite)
+                    student_out_drone = model.teacher(drone)
+                    student_out_sat = model.teacher(satellite)
+                    loss = criterion()
+
+                losses.update(loss.item(), satellite.size(0))
+
+                self.optimizer.zero_grad()
+
+                scaler.scale(loss).backward()
+
+                scaler.step(self.optimizer)
+                scaler.update()
+
+                model.module._update_target_encoder_params()
+
+                # measure elapsed time
+                batch_time.update(time.time() - end)
+                end = time.time()
+
+                if i % self.config.print_freq == 0:
+                    progress.display(i)
+
+            # warmup for the first 10 epochs
+            if epoch >= 10:
+                self.scheduler.step()
 
 # ------------------- SwAV trainer -------------------- #
 
