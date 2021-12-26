@@ -9,7 +9,8 @@ from models.DINO import DINO
 import torchvision.models as models
 from models import ViT_MoCo, ViT_DINO
 
-from models.model_trainer import SimCLR_trainer, SimSiam_trainer, BYOL_trainer, SwAV_trainer, BarlowTwins_trainer, MoCo_trainer
+from models.model_trainer import SimCLR_trainer, SimSiam_trainer, BYOL_trainer, SwAV_trainer, BarlowTwins_trainer, MoCo_trainer, DINO_trainer
+from models.model_tester import Tester, SwAV_tester
 
 
 def load_model(config, dataloader, device):
@@ -18,32 +19,37 @@ def load_model(config, dataloader, device):
     if config.model_name == 'SimSiam':
         base_encoder = models.__dict__[config.base_architecture]
         model = SimSiam(base_encoder=base_encoder,
-                        dim=config.num_features, pred_dim=512)
+                        dim=config.num_features, pred_dim=config.num_hidden)
 
         trainer = SimSiam_trainer(config, dataloader, device)
-        return model, trainer
+        tester = Tester(config, dataloader, device)
+
+        return model, trainer, tester
 
     if config.model_name == 'SimCLR':
         base_encoder = models.__dict__[config.base_architecture]
         model = ResNetSimCLR(
             base_model=base_encoder, out_dim=config.num_features)
         trainer = SimCLR_trainer(config, dataloader, device)
+        tester = Tester(config, dataloader, device)
 
-        return model, trainer
+        return model, trainer, tester
 
     if config.model_name == 'BYOL':
         base_encoder = models.__dict__[config.base_architecture]
         model = BYOL(base_encoder=base_encoder, config=config)
         trainer = BYOL_trainer(config, dataloader, device)
+        tester = Tester(config, dataloader, device)
 
-        return model, trainer
+        return model, trainer, tester
 
     if config.model_name == 'BarlowTwins':
         base_encoder = models.__dict__[config.base_architecture]
         model = BarlowTwins(base_encoder=base_encoder, config=config)
         trainer = BarlowTwins_trainer(config, dataloader, device)
+        tester = Tester(config, dataloader, device)
 
-        return model, trainer
+        return model, trainer, tester
 
     if config.model_name == 'MoCo':
         if config.base_architecture.startswith('vit'):
@@ -52,15 +58,17 @@ def load_model(config, dataloader, device):
             base_encoder = models.__dict__[config.base_architecture]
         model = MoCo(base_encoder=base_encoder, config=config)
         trainer = MoCo_trainer(config, dataloader, device)
+        tester = Tester(config, dataloader, device)
 
-        return model, trainer
+        return model, trainer, tester
 
     if config.model_name == 'DINO':
         base_encoder = ViT_DINO.__dict__[config.base_architecture]
         model = DINO(base_encoder=base_encoder, config=config)
         trainer = DINO_trainer(config, dataloader, device)
+        tester = Tester(config, dataloader, device)
 
-        return model, trainer
+        return model, trainer, tester
 
     if config.model_name == 'SwAV':
         if config.base_architecture == 'resnet50':
@@ -73,5 +81,6 @@ def load_model(config, dataloader, device):
                            hidden_mlp=config.num_hidden, nmb_prototypes=3000)
 
         trainer = SwAV_trainer(config, dataloader, device)
+        tester = SwAV_tester(config, dataloader, device)
 
-        return model, trainer
+        return model, trainer, tester

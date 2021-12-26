@@ -2,33 +2,40 @@
 data_store: "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data"
 dump_path: "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump" # path were intermediate files are dumped
 
+# run mode
+run_mode: "test" # choices: train_test, train, test
+
 # use near infrared channel
-NIR: false
+NIR: False
 
 # model specifications
-model_name: "MoCo"
-base_architecture: "vit_small" # choices: resnet50, resnet101, wide_resnet50_2, wide_resnet101_2
-num_features: 2048 # size of feature vector which is extracted
+model_name: "SwAV"
+base_architecture: "resnet50" # choices: resnet50, resnet101, wide_resnet50_2, wide_resnet101_2
+num_features: 1024 # size of feature vector which is used for loss function
 num_hidden: 512 # size of hidden layer in projection head
 
-# training parameter
+# number of GPUs
 num_gpus: 8
+
+# training parameter
 num_epochs: 12
-epoch_queue_starts: 5
 batch_size: 8
 shuffle: True
 num_workers: 1
 pin_memory: True
-temperature: 0.07
 fp16_precision: True
+temperature: 0.07
 normalize: True
 queue_length: 2048
 epsilon: 0.005
-sinkhorn_iterations: 3
-num_prototypes: 3000
-freeze_prototypes_niters: 313
 projection_hidden: 4096
 projection_size: 512
+
+# model specific training parameters
+epoch_queue_starts: 5
+sinkhorn_iterations: 3
+freeze_prototypes_niters: 313
+num_prototypes: 3000
 
 # learning rate schedule
 init_lr: 0.0001
@@ -53,8 +60,11 @@ image_size: 224
 
 # --------------------------
 
-# Model name
-checkpoint_name: "kaggle"
+# binary classifier
+
+clf: "random_forest"
+
+# ------------------------
 
 # if run is to pretrain
 pretrain: False
@@ -62,24 +72,9 @@ pretrain: False
 # if mixed dataset is used
 mixed_train: False
 
-# Number of classes for segmentation
-num_classes: 2
-
 # Set seed for reproducability
 seed_run: 1
 seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
-
-# Viusualize model output
-visualize_model_output: False
-visualize_time: 600
-
-# Proportion of the dataset used for validation split
-use_train_val_split: False
-val_size: 0.1
-
-# Continue training
-continue_training: False
-continue_training_on_checkpoint: "deeplab_dice"
 
 # Configure transforms
 transforms:
@@ -91,30 +86,5 @@ transforms:
   canny: False
   canny_filter_size: 5
   canny_thresh: 250
-
-#morphological postprocessing
-morph:
-  apply: True
-  area_closing: True
-  area_opening: True
-  binary_closing: True
-  iter: 1
-
-# loss
-loss:
-  # Select desired loss
-  # options: ["bce", "dice", "cl_dice", "focal"]
-  name: "dice"
-  patched_loss: True
-  iter: 40
-  alpha: 0.5
-  smooth: 1
-  bce_weight: 0.0
-  only_foreground: True
-
-# lr
-lr:
-  init_lr: 0.0001
-  lr_policy: "step" # options: ["none", linear", "step", "plateau"]
 
 best_epoch: None

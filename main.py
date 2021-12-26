@@ -13,7 +13,7 @@ from torch import nn
 # import from other files
 from utils import *
 from models.load_model import *
-
+from models.classifier import *
 
 # parser to select desired
 parser = argparse.ArgumentParser()
@@ -33,7 +33,7 @@ except:
 # check if connected to virtual environment
 check_venv()
 
-#
+# create directory for intermediate objects and results
 if not os.path.exists(config.dump_path):
     os.makedirs(config.dump_path)
 
@@ -48,18 +48,23 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=config.batch_size, 
                                          num_workers=config.num_workers, pin_memory=config.pin_memory, drop_last=True)
 
 # load the model
-model, trainer = load_model(config, dataloader, device)
-
+model, trainer, tester = load_model(config, dataloader, device)
 # initiate parallel GPUs
 print("You have ", torch.cuda.device_count(), "GPUs available.")
 
 # wrap model for multiple GPU usage
 model = nn.DataParallel(model)
-
 # send model to GPU
 model.to(device)
+# train the model and save best version
+if config.run_mode == 'train_test' or config.run_mode == 'train':
+    trainer.train(model)
 
-# train the model
-trainer.train(model)
+# get embeddings from trained model
+if config.run_mode == 'train_test' or config.run_mode == 'test':
+    embeddings = tester.test(model)
+
+# train a binary classifier
+clf = classify(config, embeddings)
 
 print('Successful.')

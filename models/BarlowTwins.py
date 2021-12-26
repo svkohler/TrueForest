@@ -14,8 +14,8 @@ class BarlowTwins(nn.Module):
     def __init__(self, base_encoder, config):
         super().__init__()
         self.config = config
-        self.backbone = base_encoder(pretrained=False)
-        self.backbone.fc = nn.Identity()
+        self.encoder = base_encoder(pretrained=False)
+        self.encoder.fc = nn.Identity()
 
         # projector
         sizes = [2048, 8192, 8192, 8192]  # hard coded at the moment
@@ -31,15 +31,7 @@ class BarlowTwins(nn.Module):
         self.bn = nn.BatchNorm1d(sizes[-1], affine=False)
 
     def forward(self, y1, y2):
-        z1 = self.projector(self.backbone(y1))
-        z2 = self.projector(self.backbone(y2))
+        z1 = self.projector(self.encoder(y1))
+        z2 = self.projector(self.encoder(y2))
 
         return z1, z2
-
-        # empirical cross-correlation matrix
-        c = self.bn(z1).T @ self.bn(z2)
-
-        on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
-        off_diag = off_diagonal(c).pow_(2).sum()
-        loss = on_diag + self.args.lambd * off_diag
-        return loss

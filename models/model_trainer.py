@@ -28,8 +28,8 @@ class SimSiam_trainer(object):
         self.criterion = nn.CosineSimilarity(dim=1)
         # fix learning rate of the predictor
         if self.fix_pred_lr:
-            optim_params = [{'params': model.encoder.parameters(), 'fix_lr': False},
-                            {'params': model.predictor.parameters(), 'fix_lr': True}]
+            optim_params = [{'params': model.module.encoder.parameters(), 'fix_lr': False},
+                            {'params': model.module.predictor.parameters(), 'fix_lr': True}]
         else:
             optim_params = model.parameters()
 
@@ -48,11 +48,11 @@ class SimSiam_trainer(object):
         model.train()
 
         #  *** main training loop ***
+        losses = AverageMeter('Loss', ':.4f')
         for epoch in range(self.config.num_epochs):
             # initialize meters to keep track of stats
             batch_time = AverageMeter('Time', ':6.3f')
             data_time = AverageMeter('Data', ':6.3f')
-            losses = AverageMeter('Loss', ':.4f')
             progress = ProgressMeter(
                 len(self.dataloader),
                 [batch_time, data_time, losses],
@@ -75,7 +75,7 @@ class SimSiam_trainer(object):
                     loss = -(self.criterion(p1, z2).mean() +
                              self.criterion(p2, z1).mean()) * 0.5
 
-                losses.update(loss.item(), satellite.size(0))
+                losses.update(loss.item(), self.config.batch_size)
 
                 # compute gradient and do SGD step
                 self.optimizer.zero_grad()
@@ -89,6 +89,9 @@ class SimSiam_trainer(object):
 
                 if i % self.config.print_freq == 0:
                     progress.display(i)
+
+            # check if current epoch is best epoch and save model state_dict
+            losses.check_best_epoch(model, self.config)
 
 
 # ------------------- SimCLR trainer -------------------- #
@@ -146,11 +149,11 @@ class SimCLR_trainer(object):
         model.train()
 
         #  *** main training loop ***
+        losses = AverageMeter('Loss', ':.4f')
         for epoch in range(self.config.num_epochs):
             # initialize meters to keep track of stats
             batch_time = AverageMeter('Time', ':6.3f')
             data_time = AverageMeter('Data', ':6.3f')
-            losses = AverageMeter('Loss', ':.4f')
             acc = AverageMeter('Accuracy', ':.4f')
             progress = ProgressMeter(
                 len(self.dataloader),
@@ -176,7 +179,7 @@ class SimCLR_trainer(object):
                         features_d, features_sat)
                     loss = self.criterion(logits, labels)
 
-                losses.update(loss.item(), satellite.size(0))
+                losses.update(loss.item(), self.config.batch_size)
 
                 self.optimizer.zero_grad()
 
@@ -197,6 +200,9 @@ class SimCLR_trainer(object):
             # warmup for the first 10 epochs
             if epoch >= 10:
                 self.scheduler.step()
+
+            # check if current epoch is best epoch and save model state_dict
+            losses.check_best_epoch(model, self.config)
 
 # ------------------- MoCo trainer -------------------- #
 
@@ -253,11 +259,11 @@ class MoCo_trainer(object):
         model.train()
 
         #  *** main training loop ***
+        losses = AverageMeter('Loss', ':.4f')
         for epoch in range(self.config.num_epochs):
             # initialize meters to keep track of stats
             batch_time = AverageMeter('Time', ':6.3f')
             data_time = AverageMeter('Data', ':6.3f')
-            losses = AverageMeter('Loss', ':.4f')
             progress = ProgressMeter(
                 len(self.dataloader),
                 [batch_time, data_time, losses],
@@ -284,7 +290,7 @@ class MoCo_trainer(object):
                     loss = self.contrastive_loss(
                         query_drone, key_satellite) + self.contrastive_loss(query_satellite, key_drone)
 
-                losses.update(loss.item(), satellite.size(0))
+                losses.update(loss.item(), self.config.batch_size)
 
                 self.optimizer.zero_grad()
 
@@ -300,9 +306,8 @@ class MoCo_trainer(object):
                 if i % self.config.print_freq == 0:
                     progress.display(i)
 
-            # warmup for the first 10 epochs
-            if epoch >= 10:
-                self.scheduler.step()
+            # check if current epoch is best epoch and save model state_dict
+            losses.check_best_epoch(model, self.config)
 
 
 # ------------------- BarlowTwins trainer -------------------- #
@@ -361,11 +366,11 @@ class BarlowTwins_trainer(object):
         model.train()
 
         #  *** main training loop ***
+        losses = AverageMeter('Loss', ':.4f')
         for epoch in range(self.config.num_epochs):
             # initialize meters to keep track of stats
             batch_time = AverageMeter('Time', ':6.3f')
             data_time = AverageMeter('Data', ':6.3f')
-            losses = AverageMeter('Loss', ':.4f')
             progress = ProgressMeter(
                 len(self.dataloader),
                 [batch_time, data_time, losses],
@@ -395,7 +400,7 @@ class BarlowTwins_trainer(object):
                     off_diag = self.off_diagonal(c).pow_(2).sum()
                     loss = on_diag + self.config.epsilon * off_diag
 
-                losses.update(loss.item(), satellite.size(0))
+                losses.update(loss.item(), self.config.batch_size)
 
                 self.optimizer.zero_grad()
 
@@ -414,6 +419,9 @@ class BarlowTwins_trainer(object):
             # warmup for the first 10 epochs
             if epoch >= 10:
                 self.scheduler.step()
+
+            # check if current epoch is best epoch and save model state_dict
+            losses.check_best_epoch(model, self.config)
 
 
 # ------------------- BYOL trainer -------------------- #
@@ -446,11 +454,11 @@ class BYOL_trainer(object):
         model.module.init_target_encoder()
 
         #  *** main training loop ***
+        losses = AverageMeter('Loss', ':.4f')
         for epoch in range(self.config.num_epochs):
             # initialize meters to keep track of stats
             batch_time = AverageMeter('Time', ':6.3f')
             data_time = AverageMeter('Data', ':6.3f')
-            losses = AverageMeter('Loss', ':.4f')
             progress = ProgressMeter(
                 len(self.dataloader),
                 [batch_time, data_time, losses],
@@ -478,7 +486,7 @@ class BYOL_trainer(object):
 
                     loss = (loss_one + loss_two).mean()
 
-                losses.update(loss.item(), satellite.size(0))
+                losses.update(loss.item(), self.config.batch_size)
 
                 self.optimizer.zero_grad()
 
@@ -499,6 +507,9 @@ class BYOL_trainer(object):
             # warmup for the first 10 epochs
             if epoch >= 10:
                 self.scheduler.step()
+
+            # check if current epoch is best epoch and save model state_dict
+            losses.check_best_epoch(model, self.config)
 
 
 # ------------------- DINO trainer -------------------- #
@@ -552,7 +563,7 @@ class DINO_trainer(object):
         ).cuda()
 
         # define the optimizer
-        params_groups = self.get_params_groups(model.student)
+        params_groups = self.get_params_groups(model.module.encoder)
         self.optimizer = torch.optim.AdamW(params_groups)
 
         # define learning rate scheduler
@@ -569,8 +580,6 @@ class DINO_trainer(object):
         )
         momentum_schedule = self.cosine_scheduler(self.config.ema_factor, 1,
                                                   self.config.num_epochs, len(self.dataloader))
-        # define scaler for mixed precision
-        scaler = GradScaler(enabled=self.config.fp16_precision)
 
         # check for optimal backend
         torch.backends.cudnn.benchmark = True
@@ -579,11 +588,11 @@ class DINO_trainer(object):
         model.train()
 
         #  *** main training loop ***
+        losses = AverageMeter('Loss', ':.4f')
         for epoch in range(self.config.num_epochs):
             # initialize meters to keep track of stats
             batch_time = AverageMeter('Time', ':6.3f')
             data_time = AverageMeter('Data', ':6.3f')
-            losses = AverageMeter('Loss', ':.4f')
             progress = ProgressMeter(
                 len(self.dataloader),
                 [batch_time, data_time, losses],
@@ -594,12 +603,13 @@ class DINO_trainer(object):
             # loop through batches
             for i, (satellite, drone) in enumerate(self.dataloader):
                 # update weight decay and learning rate according to their schedule
-                it = len(self.dataloader) * epoch + \
-                    it  # global training iteration
-                for i, param_group in enumerate(self.optimizer.param_groups):
-                    param_group["lr"] = lr_schedule[it]
-                    if i == 0:  # only the first group is regularized
-                        param_group["weight_decay"] = wd_schedule[it]
+                global_it = len(self.dataloader) * epoch + \
+                    i  # global training iteration
+
+                for j, param_group in enumerate(self.optimizer.param_groups):
+                    param_group["lr"] = lr_schedule[j]
+                    if j == 0:  # only the first group is regularized
+                        param_group["weight_decay"] = wd_schedule[j]
 
                 # send data to GPU
                 drone = drone.to(self.device)
@@ -609,23 +619,27 @@ class DINO_trainer(object):
                 data_time.update(time.time() - end)
 
                 # compute output and loss
-                with autocast(enabled=self.config.fp16_precision):
-                    teacher_out_drone = model.teacher(drone)
-                    teacher_out_sat = model.teacher(satellite)
-                    student_out_drone = model.teacher(drone)
-                    student_out_sat = model.teacher(satellite)
-                    loss = criterion()
+                teacher_out_drone = model.module.teacher(drone)
+                teacher_out_sat = model.module.teacher(satellite)
+                student_out_drone = model.module.encoder(drone)
+                student_out_sat = model.module.encoder(satellite)
+                loss = criterion(torch.cat((teacher_out_drone, teacher_out_sat), 0), torch.cat(
+                    (student_out_drone, student_out_sat), 0), epoch)
 
-                losses.update(loss.item(), satellite.size(0))
+                losses.update(loss.item(), self.config.batch_size)
 
                 self.optimizer.zero_grad()
 
-                scaler.scale(loss).backward()
+                loss.backward()
 
-                scaler.step(self.optimizer)
-                scaler.update()
+                self.optimizer.step()
 
-                model.module._update_target_encoder_params()
+                # EMA update for the teacher
+                with torch.no_grad():
+                    m = momentum_schedule[global_it]  # momentum parameter
+                    for param_q, param_k in zip(model.module.encoder.parameters(), model.module.teacher.parameters()):
+                        param_k.data.mul_(m).add_(
+                            (1 - m) * param_q.detach().data)
 
                 # measure elapsed time
                 batch_time.update(time.time() - end)
@@ -634,9 +648,9 @@ class DINO_trainer(object):
                 if i % self.config.print_freq == 0:
                     progress.display(i)
 
-            # warmup for the first 10 epochs
-            if epoch >= 10:
-                self.scheduler.step()
+            # check if current epoch is best epoch and save model state_dict
+            losses.check_best_epoch(model, self.config)
+
 
 # ------------------- SwAV trainer -------------------- #
 
@@ -688,11 +702,11 @@ class SwAV_trainer(object):
         model.train()
 
         #  *** main training loop ***
+        losses = AverageMeter('Loss', ':.4f')
         for epoch in range(self.config.num_epochs):
             # initialize meters to keep track of stats
             batch_time = AverageMeter('Time', ':6.3f')
             data_time = AverageMeter('Data', ':6.3f')
-            losses = AverageMeter('Loss', ':.4f')
             progress = ProgressMeter(
                 len(self.dataloader),
                 [batch_time, data_time, losses],
@@ -805,6 +819,9 @@ class SwAV_trainer(object):
 
             if queue is not None:
                 torch.save({"queue": queue}, queue_path)
+
+            # check if current epoch is best epoch and save model state_dict
+            losses.check_best_epoch(model, self.config)
 
     def init_queue(self):
         return torch.zeros(
