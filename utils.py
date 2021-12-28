@@ -9,7 +9,7 @@ import torch
 from torch import nn, optim
 from torch.nn.parameter import Parameter
 from torch.utils.data import Dataset, DataLoader
-from torchvision import datasets
+from torchvision import datasets, transforms
 from torchvision.transforms import ToTensor
 from PIL import Image
 import torch.nn.functional as F
@@ -24,8 +24,12 @@ def get_memory_free_MiB(gpu_index):
     return mem_info.free // 1024 ** 2
 
 
+def get_param(random_nr, range):
+    return range[0] + (range[1]-range[0])*random_nr
+
+
 class TrueForrestDataset(Dataset):
-    def __init__(self, config, transform=None, target_transform=None):
+    def __init__(self, config):
         self.config = config
         self.satellite_rgb_dir = self.config.data_store + '/satellite_rgb/'
         self.satellite_nir_dir = self.config.data_store + '/satellite_nir/'
@@ -34,8 +38,11 @@ class TrueForrestDataset(Dataset):
         self.satellite_rgb_images = sorted(os.listdir(self.satellite_rgb_dir))
         self.satellite_nir_images = sorted(os.listdir(self.satellite_nir_dir))
         self.drone_images = sorted(os.listdir(self.drone_dir))
-        self.transform = transform
-        self.target_transform = target_transform
+        self.angles = [0, 90, 180, 270]
+        self.contrast_range = [0.6, 2]
+        self.gamma_range = [0.8, 1.3]
+        self.hue_range = [-0.3, 0.4]
+        self.saturation_range = [0, 2]
 
     def __len__(self):
         return self.len
@@ -52,12 +59,62 @@ class TrueForrestDataset(Dataset):
         img_drone = ToTensor()(Image.open(
             self.drone_dir + self.drone_images[idx]))
         # perform transformations
-        if self.transform:
-            img_satellite = self.transform(img_satellite)
-        if self.target_transform:
-            img_drone = self.target_transform(img_drone)
+        if self.config.transforms.implement:
+            img_satellite, img_drone = self.transform(img_satellite, img_drone)
 
         return img_satellite, img_drone
+
+    def transform(self, satellite, drone):
+
+        if self.config.transforms.hflip and torch.rand(1) < self.config.transforms.hflip_prob:
+            satellite = transforms.functional.hflip(satellite)
+            drone = transforms.functional.hflip(drone)
+
+        if self.config.transforms.vflip and torch.rand(1) < self.config.transforms.vflip_prob:
+            satellite = transforms.functional.vflip(satellite)
+            drone = transforms.functional.vflip(drone)
+
+        if self.config.transforms.gaussian_blur and torch.rand(1) < self.config.transforms.gaussian_blur_prob:
+            blurrer = transforms.GaussianBlur(
+                kernel_size=[23, 23], sigma=(0.1, 2.0))
+            satellite = blurrer(satellite)
+            drone = blurrer(drone)
+
+        if self.config.transforms.contrast and torch.rand(1) < self.config.transforms.contrast_prob:
+            contrast = get_param(torch.rand(1), self.contrast_range)
+            satellite = transforms.functional.adjust_contrast(
+                satellite, contrast)
+            drone = transforms.functional.adjust_contrast(drone, contrast)
+
+        if self.config.transforms.hue and torch.rand(1) < self.config.transforms.hue_prob:
+            gamma = get_param(torch.rand(1), self.gamma_range)
+            satellite = transforms.functional.adjust_gamma(satellite, gamma)
+            drone = transforms.functional.adjust_gamma(drone, gamma)
+
+        if self.config.transforms.gamma and torch.rand(1) < self.config.transforms.gamma_prob:
+            hue = get_param(torch.rand(1), self.hue_range)
+            satellite = transforms.functional.adjust_hue(satellite, hue)
+            drone = transforms.functional.adjust_hue(drone, hue)
+
+        if self.config.transforms.saturation and torch.rand(1) < self.config.transforms.saturation_prob:
+            saturation = get_param(torch.rand(1), self.saturation_range)
+            satellite = transforms.functional.adjust_saturation(
+                satellite, saturation)
+            drone = transforms.functional.adjust_saturation(drone, saturation)
+
+        if self.config.transforms.rotate:
+            idx = int(torch.floor(torch.rand(1)*4))
+            satellite = transforms.functional.rotate(
+                satellite, self.angles[idx])
+            drone = transforms.functional.rotate(drone, self.angles[idx])
+
+        if self.config.transforms.normalize:
+            satellite = transforms.functional.normalize(
+                satellite, (0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+            drone = transforms.functional.normalize(
+                drone, (0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+
+        return satellite, drone
 
     def check_len(self):
         try:

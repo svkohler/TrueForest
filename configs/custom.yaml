@@ -2,14 +2,18 @@
 data_store: "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data"
 dump_path: "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump" # path were intermediate files are dumped
 
+# Set seed for reproducability
+seed_run: 1
+seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
+
 # run mode
-run_mode: "test" # choices: train_test, train, test
+run_mode: "train" # choices: train_test, train, test
 
 # use near infrared channel
 NIR: False
 
 # model specifications
-model_name: "SwAV"
+model_name: "SimSiam"
 base_architecture: "resnet50" # choices: resnet50, resnet101, wide_resnet50_2, wide_resnet101_2
 num_features: 1024 # size of feature vector which is used for loss function
 num_hidden: 512 # size of hidden layer in projection head
@@ -58,6 +62,26 @@ NAIP_resolution: 1
 Sentinel_resolution: 10
 image_size: 224
 
+# whether to transform images
+transforms:
+  implement: True
+  hflip: True
+  hflip_prob: 0.5
+  vflip: True
+  vflip_prob: 0.5
+  rotate: True
+  contrast: True
+  contrast_prob: 0.3
+  hue: True
+  hue_prob: 0.1
+  gamma: True
+  gamma_prob: 0.3
+  saturation: True
+  saturation_prob: 0.3
+  gaussian_blur: True
+  gaussian_blur_prob: 0.2
+  normalize: False
+
 # --------------------------
 
 # binary classifier
@@ -65,26 +89,5 @@ image_size: 224
 clf: "random_forest"
 
 # ------------------------
-
-# if run is to pretrain
-pretrain: False
-
-# if mixed dataset is used
-mixed_train: False
-
-# Set seed for reproducability
-seed_run: 1
-seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
-
-# Configure transforms
-transforms:
-  apply_test_transforms: True
-  apply_transforms: True
-  crop_size: 280
-  flip_prob: 0.5
-  rot_prob: 0.25
-  canny: False
-  canny_filter_size: 5
-  canny_thresh: 250
 
 best_epoch: None
