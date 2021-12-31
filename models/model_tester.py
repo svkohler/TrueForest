@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import sys
+from tqdm import tqdm
 
 
 class Tester(object):
@@ -13,7 +14,7 @@ class Tester(object):
         # load the model
         checkpoint = torch.load(
             self.config.dump_path + '/'+self.config.model_name+'_best_epoch.pth')
-        model.load_state_dict(checkpoint)
+        model.load_state_dict(checkpoint['model_state_dict'])
         print('Successfully loaded model.')
 
         # trim the model to the necessary layers
@@ -24,7 +25,8 @@ class Tester(object):
         # start testing
         embeddings = torch.tensor([], requires_grad=False).to(self.device)
 
-        for i, (drone, satellite) in enumerate(self.dataloader):
+        print('Start creating embeddings...')
+        for i, (drone, satellite) in enumerate(tqdm(self.dataloader)):
             # send to GPU
             drone = drone.to(self.device)
             satellite = satellite.to(self.device)
@@ -39,6 +41,7 @@ class Tester(object):
             # append embeddings
             embeddings = torch.cat((embeddings, concat), dim=0)
 
+        print('Successfully created embeddings.')
         return embeddings
 
 
@@ -52,7 +55,7 @@ class SwAV_tester(object):
         # load the model
         checkpoint = torch.load(
             self.config.dump_path + '/'+self.config.model_name+'_best_epoch.pth')
-        model.load_state_dict(checkpoint)
+        model.load_state_dict(checkpoint['model_state_dict'])
         print('Successfully loaded model.')
 
         # trim the model to the necessary layers

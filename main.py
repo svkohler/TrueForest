@@ -54,17 +54,22 @@ print("You have ", torch.cuda.device_count(), "GPUs available.")
 
 # wrap model for multiple GPU usage
 model = nn.DataParallel(model)
+
 # send model to GPU
 model.to(device)
+
 # train the model and save best version
-if config.run_mode == 'train_test' or config.run_mode == 'train':
+if config.run_mode in ['all', 'train', 'train_encoder']:
     trainer.train(model)
 
-# get embeddings from trained model
-if config.run_mode == 'train_test' or config.run_mode == 'test':
+# get embeddings from trained model and train a binary classifier with train dataset
+if config.run_mode in ['all', 'train', 'train_classifier']:
     embeddings = tester.test(model)
 
-# train a binary classifier
-clf = classify(config, embeddings)
+    classify(config, embeddings.cpu().detach().numpy())
+
+# test binary classifier with test data set
+if config.run_mode in ['all', 'test']:
+    pass
 
 print('Successful.')

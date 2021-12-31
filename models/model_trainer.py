@@ -91,7 +91,7 @@ class SimSiam_trainer(object):
                     progress.display(i)
 
             # check if current epoch is best epoch and save model state_dict
-            losses.check_best_epoch(model, self.config)
+            losses.check_best_epoch(model, epoch, self.config)
 
 
 # ------------------- SimCLR trainer -------------------- #
@@ -202,7 +202,7 @@ class SimCLR_trainer(object):
                 self.scheduler.step()
 
             # check if current epoch is best epoch and save model state_dict
-            losses.check_best_epoch(model, self.config)
+            losses.check_best_epoch(model, epoch, self.config)
 
 # ------------------- MoCo trainer -------------------- #
 
@@ -307,7 +307,7 @@ class MoCo_trainer(object):
                     progress.display(i)
 
             # check if current epoch is best epoch and save model state_dict
-            losses.check_best_epoch(model, self.config)
+            losses.check_best_epoch(model, epoch, self.config)
 
 
 # ------------------- BarlowTwins trainer -------------------- #
@@ -421,7 +421,7 @@ class BarlowTwins_trainer(object):
                 self.scheduler.step()
 
             # check if current epoch is best epoch and save model state_dict
-            losses.check_best_epoch(model, self.config)
+            losses.check_best_epoch(model, epoch, self.config)
 
 
 # ------------------- BYOL trainer -------------------- #
@@ -509,7 +509,7 @@ class BYOL_trainer(object):
                 self.scheduler.step()
 
             # check if current epoch is best epoch and save model state_dict
-            losses.check_best_epoch(model, self.config)
+            losses.check_best_epoch(model, epoch, self.config)
 
 
 # ------------------- DINO trainer -------------------- #
@@ -649,7 +649,7 @@ class DINO_trainer(object):
                     progress.display(i)
 
             # check if current epoch is best epoch and save model state_dict
-            losses.check_best_epoch(model, self.config)
+            losses.check_best_epoch(model, epoch, self.config)
 
 
 # ------------------- SwAV trainer -------------------- #
@@ -821,7 +821,7 @@ class SwAV_trainer(object):
                 torch.save({"queue": queue}, queue_path)
 
             # check if current epoch is best epoch and save model state_dict
-            losses.check_best_epoch(model, self.config)
+            losses.check_best_epoch(model, epoch, self.config)
 
     def init_queue(self):
         return torch.zeros(

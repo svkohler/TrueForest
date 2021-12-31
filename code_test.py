@@ -21,6 +21,8 @@ from torchvision.transforms import ToTensor
 from PIL import Image
 import torch.nn.functional as F
 
+import numpy as np
+
 
 # model_names = sorted(name for name in models.__dict__
 #                      if name.islower() and not name.startswith("__")
@@ -29,19 +31,27 @@ import torch.nn.functional as F
 # print(model_names)
 
 
-img = Image.open(
-    '/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data/satellite_rgb/satellite_0.png')
+# img = Image.open(
+#     '/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data/satellite_rgb/satellite_0.png')
 
-img.show()
+# img.show()
 
-img_satellite = ToTensor()(img)
+# img_satellite = ToTensor()(img)
 
-# blurrer = transforms.GaussianBlur(kernel_size=[23, 23], sigma=(0.1, 2.0))
+# # blurrer = transforms.GaussianBlur(kernel_size=[23, 23], sigma=(0.1, 2.0))
 
-#img_satellite = blurrer(img_satellite)
+# #img_satellite = blurrer(img_satellite)
 
-img_satellite = transforms.functional.adjust_saturation(img_satellite, 0)
+# img_satellite = transforms.functional.adjust_saturation(img_satellite, 0)
 
-img = ToPILImage()(img_satellite)
+# img = ToPILImage()(img_satellite)
 
-img.show()
+# img.show()
+
+a = np.array([[1, 1], [2, 2], [3, 3]])
+print(a)
+b = a[1:, :]
+print(b)
+b = np.append(b, [a[0, :]], axis=0)
+
+print(b)

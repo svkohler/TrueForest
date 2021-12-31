@@ -7,7 +7,7 @@ seed_run: 1
 seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
 
 # run mode
-run_mode: "train" # choices: train_test, train, test
+run_mode: "train_classifier" # choices: all, train, train_encoder, train_classifier, test
 
 # use near infrared channel
 NIR: False
@@ -85,8 +85,9 @@ transforms:
 # --------------------------
 
 # binary classifier
-
-clf: "random_forest"
+classify: True
+clf: "xgboost"
+neg_samples_factor: 3 # positive int
 
 # ------------------------
 

@@ -137,6 +137,7 @@ class AverageMeter(object):
     def __init__(self, name, fmt=':f'):
         self.name = name
         self.fmt = fmt
+        self.loss_history = []
         self.best_epoch = None
         self.reset()
 
@@ -152,17 +153,28 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
-    def check_best_epoch(self, model, config):
+    def check_best_epoch(self, model, epoch, config):
+        self.loss_history.append(self.sum)
         if self.best_epoch is None:
             print('Found new best model.')
-            torch.save(model.state_dict(), config.dump_path +
-                       '/'+config.model_name+'_best_epoch.pth')
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'loss_history': self.loss_history,
+                'config': config
+            }, config.dump_path +
+                '/'+config.model_name+'_best_epoch.pth')
             self.best_epoch = self.sum
         else:
             if self.best_epoch > self.sum:
                 print('Found new best model.')
-                torch.save(model.state_dict(), config.dump_path +
-                           '/'+config.model_name+'_best_epoch.pth')
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'loss_history': self.loss_history,
+                    'config': config
+                }, config.dump_path +
+                    '/'+config.model_name+'_best_epoch.pth')
                 self.best_epoch = self.sum
         self.reset()
 
@@ -219,18 +231,18 @@ class LARC(object):
     def __setstate__(self, state):
         self.optim.__setstate__(state)
 
-    @property
+    @ property
     def state(self):
         return self.optim.state
 
     def __repr__(self):
         return self.optim.__repr__()
 
-    @property
+    @ property
     def param_groups(self):
         return self.optim.param_groups
 
-    @param_groups.setter
+    @ param_groups.setter
     def param_groups(self, value):
         self.optim.param_groups = value
 
