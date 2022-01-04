@@ -18,8 +18,7 @@ def load_model(config, dataloader, device):
     # check for the right model and return it
     if config.model_name == 'SimSiam':
         base_encoder = models.__dict__[config.base_architecture]
-        model = SimSiam(base_encoder=base_encoder,
-                        dim=config.num_features, pred_dim=config.num_hidden)
+        model = SimSiam(base_encoder=base_encoder, config=config)
 
         trainer = SimSiam_trainer(config, dataloader, device)
         tester = Tester(config, dataloader, device)
@@ -29,7 +28,7 @@ def load_model(config, dataloader, device):
     if config.model_name == 'SimCLR':
         base_encoder = models.__dict__[config.base_architecture]
         model = ResNetSimCLR(
-            base_model=base_encoder, out_dim=config.num_features)
+            base_model=base_encoder, config=config)
         trainer = SimCLR_trainer(config, dataloader, device)
         tester = Tester(config, dataloader, device)
 
@@ -77,10 +76,10 @@ def load_model(config, dataloader, device):
             layers = [3, 4, 23, 3]
 
         model = ResNetSwAV(block=Bottleneck, layers=layers,
-                           normalize=config.normalize, output_dim=config.num_features,
-                           hidden_mlp=config.num_hidden, nmb_prototypes=3000)
+                           normalize=config.normalize, output_dim=config.num_projection,
+                           hidden_mlp=config.num_hidden, nmb_prototypes=config.num_prototypes)
 
         trainer = SwAV_trainer(config, dataloader, device)
-        tester = SwAV_tester(config, dataloader, device)
+        tester = Tester(config, dataloader, device)
 
         return model, trainer, tester

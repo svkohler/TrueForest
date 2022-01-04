@@ -10,7 +10,6 @@ from utils import LARC, LARS
 import numpy as np
 import math
 import torch.distributed as dist
-import apex
 from utils import DINOLoss
 
 
@@ -339,8 +338,7 @@ class BarlowTwins_trainer(object):
             lr = base_lr * q + end_lr * (1 - q)
         optimizer.param_groups[0]['lr'] = lr * \
             self.config.init_lr
-        optimizer.param_groups[1]['lr'] = lr * \
-            self.config.init_lr
+        optimizer.param_groups[1]['lr'] = lr * 0.0048
 
     def train(self, model):
         # define the optimizer
@@ -553,7 +551,7 @@ class DINO_trainer(object):
     def train(self, model):
         # define criterion
         criterion = DINOLoss(
-            self.config.projection_size,
+            self.config.num_projection,
             # total number of crops = 2 global crops + local_crops_number
             2,
             0.04,

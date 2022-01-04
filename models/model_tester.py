@@ -16,10 +16,16 @@ class Tester(object):
             self.config.dump_path + '/'+self.config.model_name+'_best_epoch.pth')
         model.load_state_dict(checkpoint['model_state_dict'])
         print('Successfully loaded model.')
-
         # trim the model to the necessary layers
-        encoder = nn.Sequential(*list(model.module.encoder.children())[:-1])
-
+        if self.config.model_name == 'BYOL':
+            encoder = nn.Sequential(
+                *list(model.module.online_encoder.encoder.children()))
+        elif self.config.model_name == 'SwAV':
+            encoder = nn.Sequential(*list(model.module.children())[:-2])
+        else:
+            encoder = nn.Sequential(
+                *list(model.module.encoder.children())[:-1])
+        print(encoder)
         # put model into evaluation mode
         encoder.eval()
         # start testing

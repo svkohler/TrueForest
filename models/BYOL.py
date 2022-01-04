@@ -23,13 +23,13 @@ class BYOL_Resnet(torch.nn.Module):
         super(BYOL_Resnet, self).__init__()
 
         self.base_encoder = base_encoder(
-            pretrained=False, num_classes=config.num_features)
+            pretrained=False)
 
         self.encoder = torch.nn.Sequential(
             *list(self.base_encoder.children())[:-1])
 
         self.projection = MLPHead(
-            in_channels=self.base_encoder.fc.in_features, mlp_hidden_size=config.projection_hidden, projection_size=config.projection_size)
+            in_channels=self.base_encoder.fc.in_features, mlp_hidden_size=config.num_hidden, projection_size=config.num_projection)
 
     def forward(self, x):
         h = self.encoder(x)
@@ -44,7 +44,7 @@ class BYOL(torch.nn.Module):
         self.online_encoder = BYOL_Resnet(base_encoder, config)
         self.target_encoder = BYOL_Resnet(base_encoder, config)
         self.predictor = MLPHead(
-            in_channels=self.online_encoder.projection.net[-1].out_features, mlp_hidden_size=config.projection_hidden, projection_size=config.projection_size)
+            in_channels=self.online_encoder.projection.net[-1].out_features, mlp_hidden_size=config.num_hidden, projection_size=config.num_features)
 
     def forward(self, x, y):
         pred_1 = self.predictor(self.online_encoder(x))

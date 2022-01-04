@@ -22,6 +22,10 @@ def classify(config, data):
     save_clf(clf, config)
 
 
+def predict(config, data):
+    pass
+
+
 def get_classifier(config):
 
     if config.clf == 'xgboost':

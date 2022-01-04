@@ -18,7 +18,8 @@ class BarlowTwins(nn.Module):
         self.encoder.fc = nn.Identity()
 
         # projector
-        sizes = [2048, 8192, 8192, 8192]  # hard coded at the moment
+        sizes = [2048, self.config.num_hidden, self.config.num_hidden,
+                 self.config.num_projection]
         layers = []
         for i in range(len(sizes) - 2):
             layers.append(nn.Linear(sizes[i], sizes[i + 1], bias=False))
@@ -26,7 +27,6 @@ class BarlowTwins(nn.Module):
             layers.append(nn.ReLU(inplace=True))
         layers.append(nn.Linear(sizes[-2], sizes[-1], bias=False))
         self.projector = nn.Sequential(*layers)
-
         # normalization layer for the representations z1 and z2
         self.bn = nn.BatchNorm1d(sizes[-1], affine=False)
 

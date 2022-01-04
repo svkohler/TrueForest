@@ -37,9 +37,9 @@ class MoCo(nn.Module):
 
         # build encoders
         self.encoder = base_encoder(
-            num_classes=self.config.projection_hidden)
+            num_classes=self.config.num_hidden)
         self.momentum_encoder = base_encoder(
-            num_classes=self.config.projection_hidden)
+            num_classes=self.config.num_hidden)
 
         if self.config.base_architecture.startswith('vit'):
             self._build_projector_and_predictor_mlps_ViT()
@@ -53,9 +53,9 @@ class MoCo(nn.Module):
     def _build_mlp(self, num_layers, input_dim, last_bn=True):
         mlp = []
         for l in range(num_layers):
-            dim1 = input_dim if l == 0 else self.config.projection_hidden
-            dim2 = self.config.projection_size if l == num_layers - \
-                1 else self.config.projection_hidden
+            dim1 = input_dim if l == 0 else self.config.num_hidden
+            dim2 = self.config.num_projection if l == num_layers - \
+                1 else self.config.num_hidden
 
             mlp.append(nn.Linear(dim1, dim2, bias=False))
 
@@ -81,7 +81,7 @@ class MoCo(nn.Module):
 
         # predictor
         self.predictor = self._build_mlp(
-            2, self.config.projection_size, False)
+            2, self.config.num_projection, False)
 
     def _build_projector_and_predictor_mlps_ViT(self):
         hidden_dim = self.encoder.head.weight.shape[1]
@@ -93,7 +93,7 @@ class MoCo(nn.Module):
             3, hidden_dim)
 
         # predictor
-        self.predictor = self._build_mlp(2, self.config.projection_size)
+        self.predictor = self._build_mlp(2, self.config.num_projection)
 
     @torch.no_grad()
     def _update_momentum_encoder(self, m):

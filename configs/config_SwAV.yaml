@@ -1,6 +1,6 @@
 # Data storage
-data_store: "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data"
-dump_path: "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump" # path were intermediate files are dumped
+data_store: "/mnt/ds3lab-scratch/svkohler/data"
+dump_path: "/mnt/ds3lab-scratch/svkohler/dump" # path were intermediate files are dumped
 
 # Set seed for reproducability
 seed_run: 1
