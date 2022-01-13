@@ -7,31 +7,31 @@ seed_run: 1
 seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
 
 # run mode
-run_mode: "all" # choices: all, train, train_encoder, train_classifier, test
+run_mode: "test" # choices: all, train, train_encoder, train_classifier, test
 
 # data information
 patch_size: 224
 location: "Central_Valley"
 
 # model specifications
-model_name: "DINO"
-base_architecture: "vit_small" # choices: vit_tiny, vit_small, vit_base
-num_features: 65536 # size of feature vector which is used for loss function
-num_hidden: 8192 # size of hidden layer in projection head
-num_projection: 65536 # size after projection
+model_name: "Triplet"
+base_architecture: "resnet50" # choices: resnet50, resnet101, wide_resnet50_2, wide_resnet101_2
+num_features: 2048 # size of feature vector which is used for loss function
+num_hidden: 512 # size of hidden layer in projection head
+num_projection: 64 # size after projection
 
 # training parameter
-num_epochs: 10
-batch_size: 8
+num_epochs: 4
+batch_size: 64
 shuffle: True
-num_workers: 1
+num_workers: 12
 pin_memory: True
 fp16_precision: True
 
 # model specific training parameters
-temperature: 1.0 # --used
+temperature: 0.07
 normalize: True
-epsilon: 0.0051 # --used
+epsilon: 0.005
 queue_length: 2048
 epoch_queue_starts: 5
 sinkhorn_iterations: 3
@@ -39,16 +39,16 @@ freeze_prototypes_niters: 313
 num_prototypes: 3000
 
 # learning rate schedule
-init_lr: 0.0005 # --used
-final_lr: 0.000001
-momentum: 0.9
-weight_decay: 0.04 # --used
-warm_up_epochs: 10 # --used
+init_lr: 0.05 # --used
+final_lr: 0
+momentum: 0.9 # --used
+weight_decay: 0.0001 # --used
+warm_up_epochs: 2
 init_warm_up_lr: 0
 ema_factor: 0.99
 
 # log
-print_freq: 10
+print_freq: 100
 
 # whether to transform images
 transforms:
@@ -74,8 +74,8 @@ transforms:
 
 # binary classifier
 classify: True
-clf: "xgboost" # choices random_forest, linear, xgboost, MLP
-neg_samples_factor: 3 # positive int
+clf: "linear" # choices random_forest, linear, xgboost, MLP
+neg_samples_factor: 1 # positive int
 
 # ------------------------
 

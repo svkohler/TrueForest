@@ -1,3 +1,4 @@
+import pickle
 import os
 import sys
 import pandas as pd
@@ -30,15 +31,24 @@ def get_param(random_nr, range):
 
 
 class TrueForrestDataset(Dataset):
-    def __init__(self, config):
+    def __init__(self, config, mode):
         self.config = config
-        self.satellite_rgb_dir = self.config.data_store + '/satellite_rgb/'
-        self.satellite_nir_dir = self.config.data_store + '/satellite_nir/'
-        self.drone_dir = self.config.data_store + '/drone/'
+        self.mode = mode
+        self.satellite_rgb_dir = self.config.data_store + '/satellite_rgb/' + \
+            config.location + '/' + self.mode + \
+            '/' + str(config.patch_size) + '/'
+        self.satellite_nir_dir = self.config.data_store + '/satellite_nir/' + \
+            config.location + '/' + self.mode + \
+            '/' + str(config.patch_size) + '/'
+        self.drone_dir = self.config.data_store + '/drone/' + \
+            config.location + '/' + self.mode + \
+            '/' + str(config.patch_size) + '/'
         self.len = self.check_len()
         self.satellite_rgb_images = sorted(os.listdir(self.satellite_rgb_dir))
         self.satellite_nir_images = sorted(os.listdir(self.satellite_nir_dir))
         self.drone_images = sorted(os.listdir(self.drone_dir))
+
+        # transformation parameter
         self.angles = [0, 90, 180, 270]
         self.contrast_range = [0.6, 2]
         self.gamma_range = [0.8, 1.3]
@@ -52,15 +62,15 @@ class TrueForrestDataset(Dataset):
         img_satellite = ToTensor()(Image.open(
             self.satellite_rgb_dir + self.satellite_rgb_images[idx]))
         # augment with near infrared channel if activated
-        if self.config.NIR:
-            img_satellite_nir = ToTensor()(Image.open(
-                self.satellite_nir_dir + self.satellite_nir_images[idx]))
-            img_satellite = torch.cat(
-                (img_satellite, img_satellite_nir), dim=0)
+        # if self.config.NIR:
+        #     img_satellite_nir = ToTensor()(Image.open(
+        #         self.satellite_nir_dir + self.satellite_nir_images[idx]))
+        #     img_satellite = torch.cat(
+        #         (img_satellite, img_satellite_nir), dim=0)
         img_drone = ToTensor()(Image.open(
             self.drone_dir + self.drone_images[idx]))
         # perform transformations
-        if self.config.transforms.implement:
+        if self.config.transforms.implement and self.mode != 'test':
             img_satellite, img_drone = self.transform(img_satellite, img_drone)
 
         return img_satellite, img_drone
@@ -164,7 +174,7 @@ class AverageMeter(object):
                 'loss_history': self.loss_history,
                 'config': config
             }, config.dump_path +
-                '/'+config.model_name+'_best_epoch.pth')
+                '/'+config.model_name+'_best_epoch_'+str(config.patch_size)+'.pth')
             self.best_epoch = self.sum
         else:
             if self.best_epoch > self.sum:
@@ -175,7 +185,7 @@ class AverageMeter(object):
                     'loss_history': self.loss_history,
                     'config': config
                 }, config.dump_path +
-                    '/'+config.model_name+'_best_epoch.pth')
+                    '/'+config.model_name+'_best_epoch_'+str(config.patch_size)+'.pth')
                 self.best_epoch = self.sum
         self.reset()
 
@@ -405,3 +415,147 @@ def seed_all(seed):
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+
+
+def paths_setter(hostname, config):
+    if hostname == 'svkohler':
+        config.data_store = "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data"
+        config.dump_path = "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump"
+
+    if hostname == 'spaceml1.ethz.ch':
+        config.data_store = "/mnt/ds3lab-scratch/svkohler/data"
+        config.dump_path = "/mnt/ds3lab-scratch/svkohler/dump"
+
+
+def produce_negative_samples(data):
+
+    data_copy = data.copy()
+    data_copy = data_copy[1:, :]
+    data_copy = np.append(data_copy, [data[0, :]], axis=0)
+
+    return np.concatenate((data[:, :int(data.shape[1]/2)], data_copy[:, int(data_copy.shape[1]/2):]), axis=1)
+
+
+def similarity_embeddings(data, config):
+
+    negatives = None
+    for i in range(config.neg_samples_factor):
+        data_shuffled = data.copy()
+        np.random.shuffle(data_shuffled)
+        negative_samples = produce_negative_samples(data_shuffled)
+        if negatives is None:
+            negatives = negative_samples
+        else:
+            negatives = np.append(negatives, negative_samples, axis=0)
+
+    pos_dot = np.apply_along_axis(dot_sim, 1, data)
+    pos_cos = np.apply_along_axis(cos_sim, 1, data)
+    pos_mse = np.apply_along_axis(mse, 1, data)
+    neg_dot = np.apply_along_axis(dot_sim, 1, negatives)
+    neg_cos = np.apply_along_axis(cos_sim, 1, negatives)
+    neg_mse = np.apply_along_axis(mse, 1, negatives)
+
+    results = {
+        'positive': {
+            'dot': {
+                'standard': {
+                    'mean': np.mean(pos_dot),
+                    'median': np.median(pos_dot),
+                    'std': np.std(pos_dot)
+                },
+                'trimmed': {
+                    'mean': trim_stat(pos_dot),
+                    'std': trim_stat(pos_dot, stat='std')
+                }
+            },
+            'cos': {
+                'standard': {
+                    'mean': np.mean(pos_cos),
+                    'median': np.median(pos_cos),
+                    'std': np.std(pos_cos)
+                },
+                'trimmed': {
+                    'mean': trim_stat(pos_cos),
+                    'std': trim_stat(pos_cos, stat='std')
+                }
+            },
+            'mse': {
+                'standard': {
+                    'mean': np.mean(pos_mse),
+                    'median': np.median(pos_mse),
+                    'std': np.std(pos_mse)
+                },
+                'trimmed': {
+                    'mean': trim_stat(pos_mse),
+                    'std': trim_stat(pos_mse, stat='std')
+                }
+            }
+        },
+        'negative': {
+            'dot': {
+                'standard': {
+                    'mean': np.mean(neg_dot),
+                    'median': np.median(neg_dot),
+                    'std': np.std(neg_dot)
+                },
+                'trimmed': {
+                    'mean': trim_stat(neg_dot),
+                    'std': trim_stat(neg_dot, stat='std')
+                }
+            },
+            'cos': {
+                'standard': {
+                    'mean': np.mean(neg_cos),
+                    'median': np.median(neg_cos),
+                    'std': np.std(neg_cos)
+                },
+                'trimmed': {
+                    'mean': trim_stat(neg_cos),
+                    'std': trim_stat(neg_cos, stat='std')
+                }
+            },
+            'mse': {
+                'standard': {
+                    'mean': np.mean(neg_mse),
+                    'median': np.median(neg_mse),
+                    'std': np.std(neg_mse)
+                },
+                'trimmed': {
+                    'mean': trim_stat(neg_mse),
+                    'std': trim_stat(neg_mse, stat='std')
+                }
+            }
+        }
+    }
+
+    with open(config.dump_path + '/'+config.model_name+'_similarities_'+str(config.patch_size)+'.json', 'wb') as fp:
+        pickle.dump(results, fp)
+
+    return results
+
+
+def dot_sim(row):
+    return np.dot(row[:int(len(row)/2)], row[int(len(row)/2):])
+
+
+def cos_sim(row):
+    return np.dot(row[:int(len(row)/2)], row[int(len(row)/2):])/(np.linalg.norm(row[:int(len(row)/2)])*np.linalg.norm(row[int(len(row)/2):]))
+
+
+def mse(row):
+    return np.square(np.subtract(row[:int(len(row)/2)], row[int(len(row)/2):])).mean()
+
+
+def trim_stat(arr, upper_quantile=0.99, lower_quantile=0.01, stat='mean'):
+    upper_q = np.quantile(arr, upper_quantile)
+    lower_q = np.quantile(arr, lower_quantile)
+
+    arr_new = [x for x in arr if upper_q > x > lower_q]
+
+    if stat == 'mean':
+        return np.array(arr_new).mean()
+
+    if stat == 'std':
+        return np.array(arr_new).std()
+
+    print('Error: stat not implemented.')

@@ -1,6 +1,6 @@
 # Data storage
-data_store: "/mnt/ds3lab-scratch/svkohler/data"
-dump_path: "/mnt/ds3lab-scratch/svkohler/dump" # path were intermediate files are dumped
+data_store: "to-be-set"
+dump_path: "to-be-set" # path were intermediate files are dumped
 
 # Set seed for reproducability
 seed_run: 1
@@ -9,8 +9,9 @@ seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
 # run mode
 run_mode: "all" # choices: all, train, train_encoder, train_classifier, test
 
-# use near infrared channel
-NIR: False
+# data information
+patch_size: 224
+location: "Central_Valley"
 
 # model specifications
 model_name: "SwAV"
@@ -49,15 +50,6 @@ ema_factor: 0.99
 # log
 print_freq: 10
 
-#----------------------
-
-# Data preprocessing
-
-# resolutions m/px
-NAIP_resolution: 1
-Sentinel_resolution: 10
-image_size: 224
-
 # whether to transform images
 transforms:
   implement: True
@@ -82,7 +74,7 @@ transforms:
 
 # binary classifier
 classify: True
-clf: "xgboost"
+clf: "xgboost" # choices random_forest, linear, xgboost, MLP
 neg_samples_factor: 3 # positive int
 
 # ------------------------

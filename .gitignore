@@ -30,6 +30,8 @@ mt_env/
 data/
 apex/
 dump/
+dump_from_remote/
+archive/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

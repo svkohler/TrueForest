@@ -1,6 +1,9 @@
+from torchvision import transforms, datasets
+import pytorch_metric_learning.utils.logging_presets as logging_presets
+from pytorch_metric_learning import losses, miners, samplers, trainers, testers
 from torch import nn
 import torch
-from utils import AverageMeter, ProgressMeter, accuracy
+from utils import AverageMeter, ProgressMeter
 import time
 import os
 import sys
@@ -21,6 +24,16 @@ class SimSiam_trainer(object):
         self.fix_pred_lr = fix_pred_lr
         self.device = device
         self.dataloader = dataloader
+
+    def adjust_learning_rate(self, optimizer, epoch, config):
+        """Decay the learning rate based on schedule"""
+        cur_lr = config.init_lr * 0.5 * \
+            (1. + math.cos(math.pi * epoch / config.num_epochs))
+        for param_group in optimizer.param_groups:
+            if 'fix_lr' in param_group and param_group['fix_lr']:
+                param_group['lr'] = config.init_lr
+            else:
+                param_group['lr'] = cur_lr
 
     def train(self, model):
         # define the loss criterion
@@ -50,14 +63,16 @@ class SimSiam_trainer(object):
         losses = AverageMeter('Loss', ':.4f')
         for epoch in range(self.config.num_epochs):
             # initialize meters to keep track of stats
-            batch_time = AverageMeter('Time', ':6.3f')
-            data_time = AverageMeter('Data', ':6.3f')
+            batch_time = AverageMeter('Data processing time (avg)', ':6.3f')
+            data_time = AverageMeter('Data loading time (avg)', ':6.3f')
             progress = ProgressMeter(
                 len(self.dataloader),
                 [batch_time, data_time, losses],
                 prefix="Epoch: [{}]".format(epoch))
 
             end = time.time()
+
+            self.adjust_learning_rate(self.optimizer, epoch, self.config)
 
             # loop through batches
             for i, (satellite, drone) in enumerate(self.dataloader):
@@ -67,6 +82,7 @@ class SimSiam_trainer(object):
 
                 # measure data loading time
                 data_time.update(time.time() - end)
+                end = time.time()
 
                 # compute output and loss
                 with autocast(enabled=self.config.fp16_precision):
@@ -132,8 +148,9 @@ class SimCLR_trainer(object):
     def train(self, model):
 
         # define the optimizer
-        self.optimizer = torch.optim.Adam(
-            model.parameters(), self.config.init_lr, weight_decay=self.config.weight_decay)
+        self.optimizer = LARS(model.parameters(), lr=self.config.init_lr, weight_decay=self.config.weight_decay,
+                              weight_decay_filter=True,
+                              lars_adaptation_filter=True)
 
         # define learning rate scheduler
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=len(self.dataloader), eta_min=0,
@@ -151,12 +168,11 @@ class SimCLR_trainer(object):
         losses = AverageMeter('Loss', ':.4f')
         for epoch in range(self.config.num_epochs):
             # initialize meters to keep track of stats
-            batch_time = AverageMeter('Time', ':6.3f')
-            data_time = AverageMeter('Data', ':6.3f')
-            acc = AverageMeter('Accuracy', ':.4f')
+            batch_time = AverageMeter('Data processing time (avg)', ':6.3f')
+            data_time = AverageMeter('Data loading time (avg)', ':6.3f')
             progress = ProgressMeter(
                 len(self.dataloader),
-                [batch_time, data_time, losses, acc],
+                [batch_time, data_time, losses],
                 prefix="Epoch: [{}]".format(epoch))
 
             end = time.time()
@@ -192,12 +208,10 @@ class SimCLR_trainer(object):
                 end = time.time()
 
                 if i % self.config.print_freq == 0:
-                    top1, top5 = accuracy(logits, labels, topk=(1, 5))
-                    acc.update(top1.cpu().numpy()[0])
                     progress.display(i)
 
             # warmup for the first 10 epochs
-            if epoch >= 10:
+            if epoch >= self.config.warm_up_epochs:
                 self.scheduler.step()
 
             # check if current epoch is best epoch and save model state_dict
@@ -214,39 +228,29 @@ class MoCo_trainer(object):
         self.device = device
         self.T = 1.0
 
-    def adjust_learning_rate(self, optimizer, epoch):
-        """Decays the learning rate with half-cycle cosine after warmup"""
-        if epoch < self.config.warm_up_epochs:
-            lr = self.config.init_lr * epoch / self.config.warm_up_epochs
-        else:
-            lr = self.config.init_lr * 0.5 * (1. + math.cos(math.pi * (
-                epoch - self.config.warm_up_epochs) / (self.config.num_epochs - self.config.warm_up_epochs)))
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
-        return lr
-
     def adjust_moco_momentum(self, epoch):
         """Adjust moco momentum based on current epoch"""
         m = 1. - 0.5 * (1. + math.cos(math.pi * epoch /
                         self.config.num_epochs)) * (1. - self.config.ema_factor)
         return m
 
-    def contrastive_loss(self, q, k):
-        # normalize
-        q = nn.functional.normalize(q, dim=1)
-        k = nn.functional.normalize(k, dim=1)
-        # Einstein sum is more intuitive
-        logits = torch.einsum('nc,mc->nm', [q, k]) / self.T
-        N = logits.shape[0]  # batch size per GPU
-        labels = (torch.arange(N, dtype=torch.long)).cuda()
-        return nn.CrossEntropyLoss()(logits, labels) * (2 * self.T)
+    def adjust_learning_rate(self, epoch):
+        """Decay the learning rate based on schedule"""
+        lr = self.config.init_lr
+        if epoch == self.config.num_epochs/2:
+            lr *= 0.1
+            print('modified learning rate to: ', lr)
+        for param_group in self.optimizer.param_groups:
+            param_group['lr'] = lr
 
     def train(self, model):
         # define the optimizer
 
-        self.optimizer = LARS(model.parameters(), lr=self.config.init_lr, weight_decay=self.config.weight_decay,
-                              weight_decay_filter=True,
-                              lars_adaptation_filter=True)
+        self.criterion = nn.CrossEntropyLoss().to(self.device)
+
+        self.optimizer = torch.optim.SGD(model.parameters(), self.config.init_lr,
+                                         momentum=self.config.momentum,
+                                         weight_decay=self.config.weight_decay)
 
         # define scaler for mixed precision
         scaler = GradScaler(enabled=self.config.fp16_precision)
@@ -261,14 +265,15 @@ class MoCo_trainer(object):
         losses = AverageMeter('Loss', ':.4f')
         for epoch in range(self.config.num_epochs):
             # initialize meters to keep track of stats
-            batch_time = AverageMeter('Time', ':6.3f')
-            data_time = AverageMeter('Data', ':6.3f')
+            batch_time = AverageMeter('Data processing time (avg)', ':6.3f')
+            data_time = AverageMeter('Data loading time (avg)', ':6.3f')
             progress = ProgressMeter(
                 len(self.dataloader),
                 [batch_time, data_time, losses],
                 prefix="Epoch: [{}]".format(epoch))
 
             end = time.time()
+            self.adjust_learning_rate(epoch)
 
             # loop through batches
             for i, (satellite, drone) in enumerate(self.dataloader):
@@ -279,15 +284,13 @@ class MoCo_trainer(object):
                 # measure data loading time
                 data_time.update(time.time() - end)
 
-                lr = self.adjust_learning_rate(self.optimizer, i)
-
                 # compute output and loss
                 with autocast(enabled=self.config.fp16_precision):
-                    query_drone, query_satellite, key_drone, key_satellite = model(
+                    drone_output, drone_target, sat_output, sat_target = model(
                         drone, satellite)
 
-                    loss = self.contrastive_loss(
-                        query_drone, key_satellite) + self.contrastive_loss(query_satellite, key_drone)
+                    loss = self.criterion(
+                        drone_output, drone_target) + self.criterion(sat_output, sat_target)
 
                 losses.update(loss.item(), self.config.batch_size)
 
@@ -367,8 +370,8 @@ class BarlowTwins_trainer(object):
         losses = AverageMeter('Loss', ':.4f')
         for epoch in range(self.config.num_epochs):
             # initialize meters to keep track of stats
-            batch_time = AverageMeter('Time', ':6.3f')
-            data_time = AverageMeter('Data', ':6.3f')
+            batch_time = AverageMeter('Data processing time (avg)', ':6.3f')
+            data_time = AverageMeter('Data loading time (avg)', ':6.3f')
             progress = ProgressMeter(
                 len(self.dataloader),
                 [batch_time, data_time, losses],
@@ -436,10 +439,25 @@ class BYOL_trainer(object):
         y = F.normalize(y, dim=-1, p=2)
         return 2 - 2 * (x * y).sum(dim=-1)
 
+    def adjust_learning_rate(self, optimizer, epoch):
+        """Decays the learning rate with half-cycle cosine after warmup"""
+        if epoch < self.config.warm_up_epochs:
+            lr = self.config.init_lr * epoch / self.config.warm_up_epochs
+        else:
+            lr = self.config.init_lr * 0.5 * (1. + math.cos(math.pi * (
+                epoch - self.config.warm_up_epochs) / (self.config.num_epochs - self.config.warm_up_epochs)))
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+        return lr
+
     def train(self, model):
         # define the optimizer
-        self.optimizer = torch.optim.SGD(list(model.module.online_encoder.parameters()) + list(model.module.predictor.parameters()),
-                                         lr=self.config.init_lr, momentum=self.config.momentum, weight_decay=self.config.weight_decay)
+        self.optimizer = LARS(list(model.module.online_encoder.parameters()) + list(model.module.predictor.parameters()),
+                              lr=self.config.init_lr, weight_decay=self.config.weight_decay,
+                              weight_decay_filter=True,
+                              lars_adaptation_filter=True)
+        # self.optimizer = torch.optim.SGD(list(model.module.online_encoder.parameters()) + list(model.module.predictor.parameters()),
+        #                                  lr=self.config.init_lr, momentum=self.config.momentum, weight_decay=self.config.weight_decay)
         # define scaler for mixed precision
         scaler = GradScaler(enabled=self.config.fp16_precision)
 
@@ -455,14 +473,15 @@ class BYOL_trainer(object):
         losses = AverageMeter('Loss', ':.4f')
         for epoch in range(self.config.num_epochs):
             # initialize meters to keep track of stats
-            batch_time = AverageMeter('Time', ':6.3f')
-            data_time = AverageMeter('Data', ':6.3f')
+            batch_time = AverageMeter('Data processing time (avg)', ':6.3f')
+            data_time = AverageMeter('Data loading time (avg)', ':6.3f')
             progress = ProgressMeter(
                 len(self.dataloader),
                 [batch_time, data_time, losses],
                 prefix="Epoch: [{}]".format(epoch))
 
             end = time.time()
+            iters_per_epoch = len(self.dataloader)
 
             # loop through batches
             for i, (satellite, drone) in enumerate(self.dataloader):
@@ -472,6 +491,9 @@ class BYOL_trainer(object):
 
                 # measure data loading time
                 data_time.update(time.time() - end)
+
+                lr = self.adjust_learning_rate(
+                    self.optimizer, i/iters_per_epoch)
 
                 # compute output and loss
                 with autocast(enabled=self.config.fp16_precision):
@@ -501,10 +523,6 @@ class BYOL_trainer(object):
 
                 if i % self.config.print_freq == 0:
                     progress.display(i)
-
-            # warmup for the first 10 epochs
-            if epoch >= 10:
-                self.scheduler.step()
 
             # check if current epoch is best epoch and save model state_dict
             losses.check_best_epoch(model, epoch, self.config)
@@ -589,8 +607,8 @@ class DINO_trainer(object):
         losses = AverageMeter('Loss', ':.4f')
         for epoch in range(self.config.num_epochs):
             # initialize meters to keep track of stats
-            batch_time = AverageMeter('Time', ':6.3f')
-            data_time = AverageMeter('Data', ':6.3f')
+            batch_time = AverageMeter('Data processing time (avg)', ':6.3f')
+            data_time = AverageMeter('Data loading time (avg)', ':6.3f')
             progress = ProgressMeter(
                 len(self.dataloader),
                 [batch_time, data_time, losses],
@@ -703,8 +721,8 @@ class SwAV_trainer(object):
         losses = AverageMeter('Loss', ':.4f')
         for epoch in range(self.config.num_epochs):
             # initialize meters to keep track of stats
-            batch_time = AverageMeter('Time', ':6.3f')
-            data_time = AverageMeter('Data', ':6.3f')
+            batch_time = AverageMeter('Data processing time (avg)', ':6.3f')
+            data_time = AverageMeter('Data loading time (avg)', ':6.3f')
             progress = ProgressMeter(
                 len(self.dataloader),
                 [batch_time, data_time, losses],
@@ -853,3 +871,59 @@ class SwAV_trainer(object):
 
         Q *= B  # the colomns must sum to 1 so that Q is an assignment
         return Q.t()
+
+
+# ------------------- Triplet trainer -------------------- #
+
+
+class Triplet_trainer(object):
+    def __init__(self, config, dataloader, device):
+        self.config = config
+        self.device = device
+        self.dataloader = dataloader
+
+    def train(self, model):
+
+        train_transform = transforms.Compose([transforms.Resize(224),
+                                              transforms.ToTensor(),
+                                              transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+
+        train_dataset = datasets.ImageFolder(
+            self.config.data_store+'/triplet/train', transform=train_transform)
+
+        self.encoder_optimizer = torch.optim.Adam(
+            model.module.encoder.parameters(), lr=0.0001, weight_decay=0.0001)
+        self.embedder_optimizer = torch.optim.Adam(
+            model.module.embedder.parameters(), lr=0.001, weight_decay=0.0001)
+
+        # define the loss criterion
+        self.loss = losses.TripletMarginLoss(margin=0.1)
+
+        # set miner
+        miner = miners.TripletMarginMiner(margin=0.1, type_of_triplets="all")
+
+        # set sampler
+        sampler = samplers.MPerClassSampler(
+            train_dataset.targets, m=2, length_before_new_iter=len(train_dataset))
+
+        # Package the above stuff into dictionaries.
+        models = {"trunk": model.module.encoder,
+                  "embedder": model.module.embedder}
+        optimizers = {"trunk_optimizer": self.encoder_optimizer,
+                      "embedder_optimizer": self.embedder_optimizer}
+        loss_funcs = {"metric_loss": self.loss}
+        mining_funcs = {"tuple_miner": miner}
+
+        trainer = trainers.MetricLossOnly(models,
+                                          optimizers,
+                                          self.config.batch_size,
+                                          loss_funcs,
+                                          mining_funcs,
+                                          train_dataset,
+                                          sampler=sampler,
+                                          dataloader_num_workers=self.config.num_workers)
+
+        trainer.train(num_epochs=self.config.num_epochs)
+
+        torch.save({'model_state_dict': model.module.encoder.state_dict()}, self.config.dump_path +
+                   '/' + self.config.model_name + '_best_epoch_'+str(self.config.patch_size)+'.pth')

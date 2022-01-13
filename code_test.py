@@ -23,7 +23,25 @@ import torch.nn.functional as F
 
 import numpy as np
 
+import time
 
+import argparse
+import math
+
+from models.classifier import load_clf
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--config',
+                    default='custom',
+                    # choices=['custom'],
+                    help='Select one of the experiments described in our report or setup a custom config file'
+                    )
+args = parser.parse_args()
+
+try:
+    config = Box.from_yaml(filename="./configs/" + args.config + ".yaml")
+except:
+    raise OSError("Does not exist", args.config)
 # model_names = sorted(name for name in models.__dict__
 #                      if name.islower() and not name.startswith("__")
 #                      and callable(models.__dict__[name]))
@@ -48,10 +66,89 @@ import numpy as np
 
 # img.show()
 
-a = np.array([[1, 1], [2, 2], [3, 3]])
-print(a)
-b = a[1:, :]
-print(b)
-b = np.append(b, [a[0, :]], axis=0)
+# end = time.time()
 
-print(b)
+# time.sleep(2)
+
+# print(time.time()-end)
+
+# row = [1, 2, 3, 4]
+
+
+# def dot_prod(row):
+#     return np.dot(row[:int(len(row)/2)], row[int(len(row)/2):])
+
+
+# def cos_sim(row):
+#     return np.dot(row[:int(len(row)/2)], row[int(len(row)/2):])/(np.linalg.norm(row[:int(len(row)/2)])*np.linalg.norm(row[int(len(row)/2):]))
+
+
+# print(dot_prod(row))
+# print(cos_sim(row))
+# print(row[:int(len(row)/2)])
+# print(row[int(len(row)/2):])
+
+# def produce_negative_samples(data):
+
+#     data_copy = data.copy()
+#     data_copy = data_copy[1:, :]
+#     data_copy = np.append(data_copy, [data[0, :]], axis=0)
+
+#     return np.concatenate((data[:, :int(data.shape[1]/2)], data_copy[:, int(data_copy.shape[1]/2):]), axis=1)
+
+
+# data = np.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]])
+
+# print(produce_negative_samples(data))
+
+# def adjust_learning_rate(epoch):
+#     """Decays the learning rate with half-cycle cosine after warmup"""
+#     if epoch < config.warm_up_epochs:
+#         lr = config.init_lr * epoch / config.warm_up_epochs
+#     else:
+#         lr = config.init_lr * 0.5 * (1. + math.cos(math.pi * (
+#             epoch - config.warm_up_epochs) / (config.num_epochs - config.warm_up_epochs)))
+#     return lr
+
+
+# for epoch in range(100):
+#     print(adjust_learning_rate(epoch))
+
+
+# data = np.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]])
+
+
+# def dot_sim(row):
+#     return np.dot(row[:int(len(row)/2)], row[int(len(row)/2):])
+
+
+# def cos_sim(row):
+#     return np.dot(row[:int(len(row)/2)], row[int(len(row)/2):])/(np.linalg.norm(row[:int(len(row)/2)])*np.linalg.norm(row[int(len(row)/2):]))
+
+
+# def mse(row):
+#     return np.square(np.subtract(row[:int(len(row)/2)], row[int(len(row)/2):])).mean()
+
+
+# pos_dot = np.apply_along_axis(dot_sim, 1, data)
+# pos_cos = np.apply_along_axis(cos_sim, 1, data)
+# pos_mse = np.apply_along_axis(mse, 1, data)
+
+# print(pos_dot)
+
+def trim_stat(arr, upper_quantile=0.99, lower_quantile=0.01, stat='mean'):
+    upper_q = np.quantile(arr, upper_quantile)
+    lower_q = np.quantile(arr, lower_quantile)
+
+    arr_new = [x for x in arr if upper_q > x > lower_q]
+
+    if stat == 'mean':
+        return np.array(arr_new).std()
+
+    if stat == 'std':
+        return np.array(arr_new).std()
+
+    print('Error: stat not implemented.')
+
+
+arr = np.array([1, 2, 3, 4, 5, 6, 10, 10, 10])

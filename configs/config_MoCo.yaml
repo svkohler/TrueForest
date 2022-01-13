@@ -1,62 +1,54 @@
 # Data storage
-data_store: "/mnt/ds3lab-scratch/svkohler/data"
-dump_path: "/mnt/ds3lab-scratch/svkohler/dump" # path were intermediate files are dumped
+data_store: "to-be-set"
+dump_path: "to-be-set" # path were intermediate files are dumped
 
 # Set seed for reproducability
 seed_run: 1
 seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
 
 # run mode
-run_mode: "all" # choices: all, train, train_encoder, train_classifier, test
+run_mode: "train_classifier" # choices: all, train, train_encoder, train_classifier, test
 
-# use near infrared channel
-NIR: False
+# data information
+patch_size: 224
+location: "Central_Valley"
 
 # model specifications
 model_name: "MoCo"
 base_architecture: "resnet50" # choices: resnet50, resnet101, wide_resnet50_2, wide_resnet101_2
 num_features: 256 # size of feature vector which is used for loss function
-num_hidden: 4096 # size of hidden layer in projection head
+num_hidden: 2048 # size of hidden layer in projection head
 num_projection: 256 # size after projection
 
 # training parameter
-num_epochs: 2
-batch_size: 16
+num_epochs: 100
+batch_size: 256
 shuffle: True
-num_workers: 1
+num_workers: 12
 pin_memory: True
 fp16_precision: True
 
 # model specific training parameters
-temperature: 1.0 # --used
+temperature: 0.07 # --used
 normalize: True
 epsilon: 0.005
-queue_length: 2048
+queue_length: 16384 # --used
 epoch_queue_starts: 5
 sinkhorn_iterations: 3
 freeze_prototypes_niters: 313
 num_prototypes: 3000
 
 # learning rate schedule
-init_lr: 0.6 # --used
+init_lr: 0.03 # --used
 final_lr: 0
 momentum: 0.9 #--used
-weight_decay: 0.000001 # --used
-warm_up_epochs: 10 # --used
+weight_decay: 0.0001 # --used
+warm_up_epochs: 2 # --used
 init_warm_up_lr: 0
 ema_factor: 0.99
 
 # log
-print_freq: 10
-
-#----------------------
-
-# Data preprocessing
-
-# resolutions m/px
-NAIP_resolution: 1
-Sentinel_resolution: 10
-image_size: 224
+print_freq: 100
 
 # whether to transform images
 transforms:
@@ -82,8 +74,8 @@ transforms:
 
 # binary classifier
 classify: True
-clf: "xgboost"
-neg_samples_factor: 3 # positive int
+clf: "xgboost" # choices random_forest, linear, xgboost, MLP
+neg_samples_factor: 1 # positive int
 
 # ------------------------
 

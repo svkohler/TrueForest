@@ -1,23 +1,53 @@
 # Imports
+import socket
+from tif_to_png import tif2png
+from tqdm import tqdm
+import argparse
+import yaml
+from skimage import io
+import scipy.ndimage
+import scipy
 from box import Box
 import numpy as np
 from PIL import Image
 import os
 import sys
-import scipy
-import scipy.ndimage
-from skimage import io
-import yaml
-import argparse
-from tqdm import tqdm
-from tif_to_png import tif2png
+
+
+def paths_setter(hostname, config):
+    if hostname == 'svkohler':
+        config.data_store = "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data"
+        config.dump_path = "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump"
+
+    if hostname == 'spaceml1.ethz.ch':
+        config.data_store = "/mnt/ds3lab-scratch/svkohler/data"
+        config.dump_path = "/mnt/ds3lab-scratch/svkohler/dump"
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--patch_size',
-                    default=200,
-                    help='Choose patch size for images in meters'
+                    type=int,
+                    help='Choose patch size for images in meters',
+                    choices=[224, 448, 1120, 2240, 5600, 10080]
+                    )
+parser.add_argument('--data_type',
+                    type=str,
+                    help='Whether it is train or test data',
+                    choices=['train', 'test']
+                    )
+parser.add_argument('--location',
+                    type=str,
+                    help='Location of images',
+                    choices=['Central_Valley', 'OOD_Area']
                     )
 args = parser.parse_args()
+
+# resolution in m/px
+NAIP_RESOLUTION = 1
+SENTINEL_RESOLUTION = 10
+
+# output image size for input in model
+IMAGE_SIZE: 224
 
 # load config
 try:
@@ -26,8 +56,8 @@ try:
 except:
     raise OSError("Does not exist")
 
-NAIP_resolution = config.NAIP_resolution
-Sentinel_resolution = config.Sentinel_resolution
+hostname = socket.gethostname()
+paths_setter(hostname, config)
 
 # patch size in meters
 patch_size = int(args.patch_size)
@@ -35,15 +65,36 @@ patch_size = int(args.patch_size)
 # load images
 Image.MAX_IMAGE_PIXELS = 9999999999
 
+# define paths
+if config.model_name == 'Triplet':
+    paths = {
+        'raw_naip': config.data_store + '/raw/NAIP/'+args.location+'/'+args.data_type,
+        'raw_sen_rgb': config.data_store + '/raw/Sentinel_RGB/'+args.location+'/'+args.data_type,
+        'raw_sen_nir': config.data_store + '/raw/Sentinel_NIR/'+args.location+'/'+args.data_type,
+        'drone': config.data_store + '/triplet/'+args.data_type,
+        'sat_rgb': config.data_store+'/triplet/'+args.data_type,
+        'sat_nir': config.data_store+'/triplet/'+args.data_type
+    }
+else:
+    paths = {
+        'raw_naip': config.data_store + '/raw/NAIP/'+args.location+'/'+args.data_type,
+        'raw_sen_rgb': config.data_store + '/raw/Sentinel_RGB/'+args.location+'/'+args.data_type,
+        'raw_sen_nir': config.data_store + '/raw/Sentinel_NIR/'+args.location+'/'+args.data_type,
+        'drone': config.data_store + '/drone/'+args.location+'/'+args.data_type+'/' + str(patch_size),
+        'sat_rgb': config.data_store+'/satellite_rgb/'+args.location+'/'+args.data_type+'/' + str(patch_size),
+        'sat_nir': config.data_store+'/satellite_nir/'+args.location+'/'+args.data_type+'/' + str(patch_size)
+    }
+
 # get the list of naip, sentinel_RGB, sentinel_NIR image patches
-naip_patches = os.listdir(config.data_store + '/raw/NAIP')
-sentinel_RGB_patches = os.listdir(config.data_store + '/raw/Sentinel_RGB')
-sentinel_NIR_patches = os.listdir(config.data_store + '/raw/Sentinel_NIR')
+naip_patches = os.listdir(paths['raw_naip'])
+sentinel_RGB_patches = os.listdir(paths['raw_sen_rgb'])
+sentinel_NIR_patches = os.listdir(paths['raw_sen_nir'])
 # extract coordinates from image path to later match against
 sentinel_RGB_coordinates = [
     patch[19:len(patch)-4] for patch in sentinel_RGB_patches]
 sentinel_NIR_coordinates = [
     patch[19:len(patch)-4] for patch in sentinel_NIR_patches]
+
 
 # loop over naip image patches and search for the corresponding sentinel satellite patch
 converter = tif2png()
@@ -56,15 +107,15 @@ for patch in naip_patches:
 
     # read the images
     naip = Image.fromarray(
-        np.uint8(io.imread(config.data_store + '/raw/NAIP/'+patch))[:, :, :3])
-    sentinel_rgb = Image.fromarray(np.uint8(io.imread(
-        config.data_store + '/raw/Sentinel_RGB/'+sentinel_RGB_patches[idx_RGB])))
+        np.uint8(io.imread(paths['raw_naip'] + '/'+patch))[:, :, :3])
+    sentinel_rgb = Image.fromarray(
+        np.uint8(io.imread(paths['raw_sen_rgb'] + '/'+sentinel_RGB_patches[idx_RGB])))
     sentinel_nir = Image.fromarray(np.uint8(io.imread(
-        config.data_store + '/raw/Sentinel_NIR/'+sentinel_NIR_patches[idx_NIR])))
+        paths['raw_sen_nir']+'/'+sentinel_NIR_patches[idx_NIR])))
 
     print('Loaded coordiantes: ', coordinates)
 
-    converter(config, naip, sentinel_rgb, sentinel_nir, patch_size,
-              NAIP_resolution, Sentinel_resolution)
+    converter(config, paths, naip, sentinel_rgb, sentinel_nir, patch_size,
+              NAIP_RESOLUTION, SENTINEL_RESOLUTION)
 
     print('Succesfully cropped coordiantes: ', coordinates)

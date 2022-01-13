@@ -5,17 +5,27 @@ from models.BYOL import BYOL
 from models.BarlowTwins import BarlowTwins
 from models.MoCo import MoCo
 from models.DINO import DINO
+from models.triplet import Triplet
 
 import torchvision.models as models
-from models import ViT_MoCo, ViT_DINO
+from models import ViT_DINO
 
-from models.model_trainer import SimCLR_trainer, SimSiam_trainer, BYOL_trainer, SwAV_trainer, BarlowTwins_trainer, MoCo_trainer, DINO_trainer
-from models.model_tester import Tester, SwAV_tester
+from models.model_trainer import SimCLR_trainer, SimSiam_trainer, BYOL_trainer, SwAV_trainer, BarlowTwins_trainer, MoCo_trainer, DINO_trainer, Triplet_trainer
+from models.model_tester import Tester, Triplet_tester
 
 
 def load_model(config, dataloader, device):
 
     # check for the right model and return it
+    if config.model_name == 'Triplet':
+        base_encoder = models.__dict__[config.base_architecture]
+        model = Triplet(base_encoder=base_encoder, config=config)
+
+        trainer = Triplet_trainer(config, dataloader, device)
+        tester = Triplet_tester(config, dataloader, device)
+
+        return model, trainer, tester
+
     if config.model_name == 'SimSiam':
         base_encoder = models.__dict__[config.base_architecture]
         model = SimSiam(base_encoder=base_encoder, config=config)
