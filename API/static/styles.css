@@ -1,3 +1,65 @@
+body {
+  background-image: url(images/rainforest.jpg);
+  background-repeat: no-repeat;
+  background-size: 100%;
+  background-position: top;
+  height: 200vh;
+  background-attachment: fixed;
+  display: block;
+  margin: 0px;
+}
+
 h1 {
-  color: aqua;
+  color: rgb(250, 50, 88);
+  font-size: 100px;
+  font-family: "Courier New", Courier, monospace;
+  text-align: center;
+}
+
+.main {
+  border-width: 5px;
+  border-color: magenta;
+  border-style: solid;
+}
+
+.DD_Sat {
+  background-color: maroon;
+  height: 50vh;
+  display: flex;
+  justify-content: space-between;
+}
+
+.DD {
+  background-color: mediumblue;
+  height: 90%;
+  width: 45%;
+  align-self: center;
+  margin-left: 2em;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.Sat {
+  background-color: mediumpurple;
+  height: 90%;
+  width: 45%;
+  align-self: center;
+  margin-right: 2em;
+}
+
+.form_coordinates {
+  display: flex;
+}
+
+.coordinate_input_label {
+  display: block;
+}
+
+.coordinate_input {
+  width: 100px;
+}
+
+.form_drone_img {
+  height: 0px;
+  overflow: clip;
 }

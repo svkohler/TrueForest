@@ -4,12 +4,54 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+    <title>TrueForest Validator</title>
+    <link rel="icon" type="image/png" href="./static/images/tree.png">
+    <link rel="stylesheet" href="./static/styles.css">
 </head>
 <body>
-    <h1>TrueForest</h1>
-    <img src="{{ url_for('static', path='/images/rainforest.jpg') }}" alt="background">
+    <div class='main'>
+        <h1>TrueForest</h1>
+        <div class='coordinates'>
+            <h4>Please enter coordinates</h4>
+            <form id="form_coordinates" action="/upload_coordinates" class="form_coordinates" name="form_coordinates" method="post" enctype="multipart/form-data">
+                <div class='coordinate_input_container'>
+                    <label class="coordinate_input_label" for="NW">NW</label>
+                    <input id="NW" name="NW" class='coordinate_input' type="number" step="any" min="0" max="100" value="insert">
+                </div>
+                <div class='coordinate_input_container'>
+                    <label class="coordinate_input_label" for="NE">NE</label>
+                    <input id="NE" name="NE" class='coordinate_input' type="number" step="any" min="0" max="100" value="insert">
+                </div>
+                <div class='coordinate_input_container'>
+                    <label class="coordinate_input_label" for="SE">SE</label>
+                    <input id="SE" name="SE" class='coordinate_input' type="number" step="any" min="0" max="100" value="insert">
+                </div>
+                <div class='coordinate_input_container'>
+                    <label class="coordinate_input_label" for="SW">SW</label>
+                    <input id="SW" name="SW" class='coordinate_input' type="number" step="any" min="0" max="100" value="insert">
+                </div>
+            </form>
+        </div>
+        <form id="form_drone_img" class="form_drone_img" action="/upload_drone_img" method="post" enctype="multipart/form-data">
+            <input type="file" id="fileUpload" name="drone_img" />
+        </form>
+        <div class='DD_Sat'>
+            <div id="drop_zone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);" class='DD'>
+                <p>Drag one or more files to this Drop Zone ...</p>
+            </div>
+            <div class='Sat'>
+                <p>Here corresponding satellite image will be shown</p>
+            </div>
+        </div>
+        <div class="buttons-1">
+            <button id="clear" onclick="clearDD(event);">Clear</button>
+            <button id="get_sat" onclick="submitCoordinatesForm();">Get Satellite image</button>
+        </div>
+        <div>
+            <button onclick="submitImgForm()">Validate</button>
+        </div>
+    </div>
     <a href="/about">About</a>
+    <script type="text/javascript" src="static/script.js"></script> 
 </body>
 </html>
