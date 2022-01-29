@@ -1,3 +1,4 @@
+import pickle
 import os
 from box import Box
 import rioxarray as rxr
@@ -8,6 +9,25 @@ from rasterio.plot import show as sh
 from torchvision.transforms.transforms import ToPILImage
 import yaml
 import torch
+
+# import system packages
+import sys
+import os
+import socket
+
+
+# imports for config
+from box import Box
+import argparse
+
+# imports for torch
+import torch
+from torch import nn
+
+# import from other files
+from utils import *
+from models.load_model import *
+from models.classifier import *
 
 import torchvision.models as models
 
@@ -42,6 +62,10 @@ try:
     config = Box.from_yaml(filename="./configs/" + args.config + ".yaml")
 except:
     raise OSError("Does not exist", args.config)
+
+# get hostname to set the correct paths
+hostname = socket.gethostname()
+paths_setter(hostname, config)
 # model_names = sorted(name for name in models.__dict__
 #                      if name.islower() and not name.startswith("__")
 #                      and callable(models.__dict__[name]))
@@ -136,19 +160,44 @@ except:
 
 # print(pos_dot)
 
-def trim_stat(arr, upper_quantile=0.99, lower_quantile=0.01, stat='mean'):
-    upper_q = np.quantile(arr, upper_quantile)
-    lower_q = np.quantile(arr, lower_quantile)
+# def trim_stat(arr, upper_quantile=0.99, lower_quantile=0.01, stat='mean'):
+#     upper_q = np.quantile(arr, upper_quantile)
+#     lower_q = np.quantile(arr, lower_quantile)
 
-    arr_new = [x for x in arr if upper_q > x > lower_q]
+#     arr_new = [x for x in arr if upper_q > x > lower_q]
 
-    if stat == 'mean':
-        return np.array(arr_new).std()
+#     if stat == 'mean':
+#         return np.array(arr_new).std()
 
-    if stat == 'std':
-        return np.array(arr_new).std()
+#     if stat == 'std':
+#         return np.array(arr_new).std()
 
-    print('Error: stat not implemented.')
+#     print('Error: stat not implemented.')
 
 
-arr = np.array([1, 2, 3, 4, 5, 6, 10, 10, 10])
+# arr = np.array([1, 2, 3, 4, 5, 6, 10, 10, 10])
+
+with open(config.dump_path + '/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl', 'rb') as data:
+    acc = pickle.load(data)
+
+print(acc)
+
+# a = np.array([1, 2, 3, 0, 0, 0])
+
+# print(sum(a == 0))
+
+# for i in range(7, 10):
+#     print(i)
+
+
+# acc = np.array([0.3, 0.4, 0.5, 0, 0.6, 1])
+
+# acc = np.delete(acc, np.where(acc == 0))
+# acc = np.delete(acc, np.where(acc == 1))
+
+# arr = np.zeros(10)
+
+# arr[:len(acc)] = acc
+
+
+# print(arr)

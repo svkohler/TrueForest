@@ -17,129 +17,57 @@ from PIL import Image
 import torch.nn.functional as F
 
 from pynvml import *
+import psutil
+
+
+def check_venv(venv='mt_env'):
+    '''
+    helper function to check whether connected to virtual environment
+    '''
+    if sys.prefix.split('/')[-1] != venv:
+        raise ConnectionError('Not connected to correct virtual environment')
 
 
 def get_memory_free_MiB(gpu_index):
+    '''
+    helper function to get free space on GPU unit
+    '''
     nvmlInit()
     handle = nvmlDeviceGetHandleByIndex(int(gpu_index))
     mem_info = nvmlDeviceGetMemoryInfo(handle)
     return mem_info.free // 1024 ** 2
 
 
-def get_param(random_nr, range):
-    return range[0] + (range[1]-range[0])*random_nr
+def seed_all(seed):
+    '''
+    set seed for all random elements in the code for reproducability
+    '''
+    if not seed:
+        seed = 10
+
+    print("[ Using Seed : ", seed, " ]")
+
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.cuda.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 
-class TrueForrestDataset(Dataset):
-    def __init__(self, config, mode):
-        self.config = config
-        self.mode = mode
-        self.satellite_rgb_dir = self.config.data_store + '/satellite_rgb/' + \
-            config.location + '/' + self.mode + \
-            '/' + str(config.patch_size) + '/'
-        self.satellite_nir_dir = self.config.data_store + '/satellite_nir/' + \
-            config.location + '/' + self.mode + \
-            '/' + str(config.patch_size) + '/'
-        self.drone_dir = self.config.data_store + '/drone/' + \
-            config.location + '/' + self.mode + \
-            '/' + str(config.patch_size) + '/'
-        self.len = self.check_len()
-        self.satellite_rgb_images = sorted(os.listdir(self.satellite_rgb_dir))
-        self.satellite_nir_images = sorted(os.listdir(self.satellite_nir_dir))
-        self.drone_images = sorted(os.listdir(self.drone_dir))
+def paths_setter(hostname, config):
+    '''
+    helper function to set correct paths dependent on which host machine the code is run.
+    '''
 
-        # transformation parameter
-        self.angles = [0, 90, 180, 270]
-        self.contrast_range = [0.6, 2]
-        self.gamma_range = [0.8, 1.3]
-        self.hue_range = [-0.3, 0.4]
-        self.saturation_range = [0, 2]
+    if hostname == 'svkohler':
+        config.data_store = "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data"
+        config.dump_path = "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump"
 
-    def __len__(self):
-        return self.len
-
-    def __getitem__(self, idx):
-        img_satellite = ToTensor()(Image.open(
-            self.satellite_rgb_dir + self.satellite_rgb_images[idx]))
-        # augment with near infrared channel if activated
-        # if self.config.NIR:
-        #     img_satellite_nir = ToTensor()(Image.open(
-        #         self.satellite_nir_dir + self.satellite_nir_images[idx]))
-        #     img_satellite = torch.cat(
-        #         (img_satellite, img_satellite_nir), dim=0)
-        img_drone = ToTensor()(Image.open(
-            self.drone_dir + self.drone_images[idx]))
-        # perform transformations
-        if self.config.transforms.implement and self.mode != 'test':
-            img_satellite, img_drone = self.transform(img_satellite, img_drone)
-
-        return img_satellite, img_drone
-
-    def transform(self, satellite, drone):
-
-        if self.config.transforms.hflip and torch.rand(1) < self.config.transforms.hflip_prob:
-            satellite = transforms.functional.hflip(satellite)
-            drone = transforms.functional.hflip(drone)
-
-        if self.config.transforms.vflip and torch.rand(1) < self.config.transforms.vflip_prob:
-            satellite = transforms.functional.vflip(satellite)
-            drone = transforms.functional.vflip(drone)
-
-        if self.config.transforms.gaussian_blur and torch.rand(1) < self.config.transforms.gaussian_blur_prob:
-            blurrer = transforms.GaussianBlur(
-                kernel_size=[23, 23], sigma=(0.1, 2.0))
-            satellite = blurrer(satellite)
-            drone = blurrer(drone)
-
-        if self.config.transforms.contrast and torch.rand(1) < self.config.transforms.contrast_prob:
-            contrast = get_param(torch.rand(1), self.contrast_range)
-            satellite = transforms.functional.adjust_contrast(
-                satellite, contrast)
-            drone = transforms.functional.adjust_contrast(drone, contrast)
-
-        if self.config.transforms.hue and torch.rand(1) < self.config.transforms.hue_prob:
-            gamma = get_param(torch.rand(1), self.gamma_range)
-            satellite = transforms.functional.adjust_gamma(satellite, gamma)
-            drone = transforms.functional.adjust_gamma(drone, gamma)
-
-        if self.config.transforms.gamma and torch.rand(1) < self.config.transforms.gamma_prob:
-            hue = get_param(torch.rand(1), self.hue_range)
-            satellite = transforms.functional.adjust_hue(satellite, hue)
-            drone = transforms.functional.adjust_hue(drone, hue)
-
-        if self.config.transforms.saturation and torch.rand(1) < self.config.transforms.saturation_prob:
-            saturation = get_param(torch.rand(1), self.saturation_range)
-            satellite = transforms.functional.adjust_saturation(
-                satellite, saturation)
-            drone = transforms.functional.adjust_saturation(drone, saturation)
-
-        if self.config.transforms.rotate:
-            idx = int(torch.floor(torch.rand(1)*4))
-            satellite = transforms.functional.rotate(
-                satellite, self.angles[idx])
-            drone = transforms.functional.rotate(drone, self.angles[idx])
-
-        if self.config.transforms.normalize:
-            satellite = transforms.functional.normalize(
-                satellite, (0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
-            drone = transforms.functional.normalize(
-                drone, (0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
-
-        return satellite, drone
-
-    def check_len(self):
-        try:
-            len(os.listdir(self.satellite_rgb_dir)) == len(
-                os.listdir(self.drone_dir)) == len(os.listdir(self.satellite_nir_dir))
-            return len(os.listdir(self.satellite_rgb_dir))
-        except:
-            ValueError(
-                'There is not the same number of drone and satellite images.')
-
-
-def check_venv(venv='mt_env'):
-    if sys.prefix.split('/')[-1] != venv:
-        raise ConnectionError('Not connected to correct virtual environment')
+    if hostname == 'spaceml1.ethz.ch':
+        config.data_store = "/mnt/ds3lab-scratch/svkohler/data"
+        config.dump_path = "/mnt/ds3lab-scratch/svkohler/dump"
 
 
 class AverageMeter(object):
@@ -195,6 +123,10 @@ class AverageMeter(object):
 
 
 class ProgressMeter(object):
+    '''
+    displays training progress
+    '''
+
     def __init__(self, num_batches, meters, prefix=""):
         self.batch_fmtstr = self._get_batch_fmtstr(num_batches)
         self.meters = meters
@@ -211,24 +143,128 @@ class ProgressMeter(object):
         return '[' + fmt + '/' + fmt.format(num_batches) + ']'
 
 
-def accuracy(output, target, topk=(1,)):
-    """Computes the accuracy over the k top predictions for the specified values of k"""
-    with torch.no_grad():
-        maxk = max(topk)
-        batch_size = target.size(0)
+class TrueForestDataset(Dataset):
+    '''
+    dataset to train TrueForest models
+    '''
 
-        _, pred = output.topk(maxk, 1, True, True)
-        pred = pred.t()
-        correct = pred.eq(target.view(1, -1).expand_as(pred))
+    def __init__(self, config, mode, transform=True):
+        self.config = config
+        self.mode = mode
+        self.trans = transform
+        self.satellite_rgb_dir = self.config.data_store + '/satellite_rgb/' + \
+            config.location + '/' + self.mode + \
+            '/' + str(config.patch_size) + '/'
+        self.satellite_nir_dir = self.config.data_store + '/satellite_nir/' + \
+            config.location + '/' + self.mode + \
+            '/' + str(config.patch_size) + '/'
+        self.drone_dir = self.config.data_store + '/drone/' + \
+            config.location + '/' + self.mode + \
+            '/' + str(config.patch_size) + '/'
+        self.len = self.check_len()
+        self.satellite_rgb_images = sorted(os.listdir(self.satellite_rgb_dir))
+        self.satellite_nir_images = sorted(os.listdir(self.satellite_nir_dir))
+        self.drone_images = sorted(os.listdir(self.drone_dir))
 
-        res = []
-        for k in topk:
-            correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
-            res.append(correct_k.mul_(100.0 / batch_size))
-        return res
+        # transformation parameter
+        self.angles = [0, 90, 180, 270]
+        self.contrast_range = [0.6, 2]
+        self.gamma_range = [0.8, 1.3]
+        self.hue_range = [-0.3, 0.4]
+        self.saturation_range = [0, 2]
+
+    def __len__(self):
+        return self.len
+
+    def __getitem__(self, idx):
+        img_satellite = ToTensor()(Image.open(
+            self.satellite_rgb_dir + self.satellite_rgb_images[idx]))
+        # augment with near infrared channel if activated
+        # if self.config.NIR:
+        #     img_satellite_nir = ToTensor()(Image.open(
+        #         self.satellite_nir_dir + self.satellite_nir_images[idx]))
+        #     img_satellite = torch.cat(
+        #         (img_satellite, img_satellite_nir), dim=0)
+        img_drone = ToTensor()(Image.open(
+            self.drone_dir + self.drone_images[idx]))
+        # perform transformations
+        if self.trans:
+            img_satellite, img_drone = self.transform(img_satellite, img_drone)
+
+        return img_satellite, img_drone
+
+    def transform(self, satellite, drone):
+
+        if self.config.transforms.hflip and torch.rand(1) < self.config.transforms.hflip_prob:
+            satellite = transforms.functional.hflip(satellite)
+            drone = transforms.functional.hflip(drone)
+
+        if self.config.transforms.vflip and torch.rand(1) < self.config.transforms.vflip_prob:
+            satellite = transforms.functional.vflip(satellite)
+            drone = transforms.functional.vflip(drone)
+
+        if self.config.transforms.gaussian_blur and torch.rand(1) < self.config.transforms.gaussian_blur_prob:
+            blurrer = transforms.GaussianBlur(
+                kernel_size=[23, 23], sigma=(0.1, 2.0))
+            satellite = blurrer(satellite)
+            drone = blurrer(drone)
+
+        if self.config.transforms.contrast and torch.rand(1) < self.config.transforms.contrast_prob:
+            contrast = self.get_param(torch.rand(1), self.contrast_range)
+            satellite = transforms.functional.adjust_contrast(
+                satellite, contrast)
+            drone = transforms.functional.adjust_contrast(drone, contrast)
+
+        if self.config.transforms.hue and torch.rand(1) < self.config.transforms.hue_prob:
+            gamma = self.get_param(torch.rand(1), self.gamma_range)
+            satellite = transforms.functional.adjust_gamma(satellite, gamma)
+            drone = transforms.functional.adjust_gamma(drone, gamma)
+
+        if self.config.transforms.gamma and torch.rand(1) < self.config.transforms.gamma_prob:
+            hue = self.get_param(torch.rand(1), self.hue_range)
+            satellite = transforms.functional.adjust_hue(satellite, hue)
+            drone = transforms.functional.adjust_hue(drone, hue)
+
+        if self.config.transforms.saturation and torch.rand(1) < self.config.transforms.saturation_prob:
+            saturation = self.get_param(torch.rand(1), self.saturation_range)
+            satellite = transforms.functional.adjust_saturation(
+                satellite, saturation)
+            drone = transforms.functional.adjust_saturation(drone, saturation)
+
+        if self.config.transforms.rotate:
+            idx = int(torch.floor(torch.rand(1)*4))
+            satellite = transforms.functional.rotate(
+                satellite, self.angles[idx])
+            drone = transforms.functional.rotate(drone, self.angles[idx])
+
+        if self.config.transforms.normalize:
+            satellite = transforms.functional.normalize(
+                satellite, (0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+            drone = transforms.functional.normalize(
+                drone, (0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+
+        return satellite, drone
+
+    def check_len(self):
+        try:
+            len(os.listdir(self.satellite_rgb_dir)) == len(
+                os.listdir(self.drone_dir)) == len(os.listdir(self.satellite_nir_dir))
+            return len(os.listdir(self.satellite_rgb_dir))
+        except:
+            ValueError(
+                'There is not the same number of drone and satellite images.')
+
+    def get_param(self, random_nr, range):
+        '''
+        helper function to get transform parameter in the correct range
+        '''
+        return range[0] + (range[1]-range[0])*random_nr
 
 
 class LARC(object):
+    '''
+    optimizer used in the SwAV model
+    '''
 
     def __init__(self, optimizer, trust_coefficient=0.02, clip=True, eps=1e-8):
         self.optim = optimizer
@@ -304,6 +340,10 @@ class LARC(object):
 
 
 class LARS(optim.Optimizer):
+    '''
+    optimizer
+    '''
+
     def __init__(self, params, lr, weight_decay=0, momentum=0.9, eta=0.001,
                  weight_decay_filter=False, lars_adaptation_filter=False):
 
@@ -345,98 +385,45 @@ class LARS(optim.Optimizer):
                 p.add_(mu, alpha=-g['lr'])
 
 
-class DINOLoss(nn.Module):
-    def __init__(self, out_dim, ncrops, warmup_teacher_temp, teacher_temp,
-                 warmup_teacher_temp_epochs, nepochs, student_temp=0.1,
-                 center_momentum=0.9):
-        super().__init__()
-        self.student_temp = student_temp
-        self.center_momentum = center_momentum
-        self.ncrops = ncrops
-        self.register_buffer("center", torch.zeros(1, out_dim))
-        # we apply a warm up for the teacher temperature because
-        # a too high temperature makes the training instable at the beginning
-        self.teacher_temp_schedule = np.concatenate((
-            np.linspace(warmup_teacher_temp,
-                        teacher_temp, warmup_teacher_temp_epochs),
-            np.ones(nepochs - warmup_teacher_temp_epochs) * teacher_temp
-        ))
+def process_data(data, config, mode):
+    '''
+    data in the format (samples * 2xfeatures)
+    in addition to positive samples (which are given by definition) create negative ones by randomly
+    combining satellite features (1st half) and drone features (2nd half) of different samples
+    '''
 
-    def forward(self, student_output, teacher_output, epoch):
-        """
-        Cross-entropy between softmax outputs of the teacher and student networks.
-        """
-        student_out = student_output / self.student_temp
-        student_out = student_out.chunk(self.ncrops)
+    pos_labels = np.ones(len(data), dtype=np.int8)
 
-        # teacher centering and sharpening
-        temp = self.teacher_temp_schedule[epoch]
-        teacher_out = F.softmax((teacher_output - self.center) / temp, dim=-1)
-        teacher_out = teacher_out.detach().chunk(2)
+    if mode == 'test':
+        return data, pos_labels
 
-        total_loss = 0
-        n_loss_terms = 0
-        for iq, q in enumerate(teacher_out):
-            for v in range(len(student_out)):
-                if v == iq:
-                    # we skip cases where student and teacher operate on the same view
-                    continue
-                loss = torch.sum(-q *
-                                 F.log_softmax(student_out[v], dim=-1), dim=-1)
-                total_loss += loss.mean()
-                n_loss_terms += 1
-        total_loss /= n_loss_terms
-        self.update_center(teacher_output)
-        return total_loss
+    negatives = None
+    for i in range(config.neg_samples_factor):
+        data_shuffled = data.copy()
+        np.random.shuffle(data_shuffled)
+        negative_samples = produce_negative_samples(data_shuffled)
+        if negatives is None:
+            negatives = negative_samples
+        else:
+            negatives = np.append(negatives, negative_samples, axis=0)
 
-    @torch.no_grad()
-    def update_center(self, teacher_output):
-        """
-        Update center used for teacher output.
-        """
-        batch_center = torch.sum(teacher_output, dim=0, keepdim=True)
-        batch_center = batch_center / (len(teacher_output))
+    neg_labels = np.zeros(len(negatives), dtype=np.int8)
 
-        # ema update
-        self.center = self.center * self.center_momentum + \
-            batch_center * (1 - self.center_momentum)
-
-
-def seed_all(seed):
-    if not seed:
-        seed = 10
-
-    print("[ Using Seed : ", seed, " ]")
-
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.cuda.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-
-def paths_setter(hostname, config):
-    if hostname == 'svkohler':
-        config.data_store = "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data"
-        config.dump_path = "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump"
-
-    if hostname == 'spaceml1.ethz.ch':
-        config.data_store = "/mnt/ds3lab-scratch/svkohler/data"
-        config.dump_path = "/mnt/ds3lab-scratch/svkohler/dump"
+    return np.concatenate((data, negatives), axis=0), np.concatenate((pos_labels, neg_labels), axis=0, dtype=np.int8)
 
 
 def produce_negative_samples(data):
 
     data_copy = data.copy()
+
     data_copy = data_copy[1:, :]
+
     data_copy = np.append(data_copy, [data[0, :]], axis=0)
 
     return np.concatenate((data[:, :int(data.shape[1]/2)], data_copy[:, int(data_copy.shape[1]/2):]), axis=1)
 
 
-def similarity_embeddings(data, config):
+def similarity_embeddings(data, config, verbose=True):
 
     negatives = None
     for i in range(config.neg_samples_factor):
@@ -531,7 +518,9 @@ def similarity_embeddings(data, config):
     with open(config.dump_path + '/'+config.model_name+'_similarities_'+str(config.patch_size)+'.json', 'wb') as fp:
         pickle.dump(results, fp)
 
-    return results
+    if verbose:
+        print('Similarities of embeddings: ')
+        print(results)
 
 
 def dot_sim(row):
@@ -559,3 +548,14 @@ def trim_stat(arr, upper_quantile=0.99, lower_quantile=0.01, stat='mean'):
         return np.array(arr_new).std()
 
     print('Error: stat not implemented.')
+
+
+def clean_acc(acc, num_runs):
+    acc = np.delete(acc, np.where(acc <= 0.1))
+    acc = np.delete(acc, np.where(acc == 1))
+
+    arr = np.zeros(num_runs)
+
+    arr[:len(acc)] = acc
+
+    return arr

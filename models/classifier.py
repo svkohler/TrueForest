@@ -21,10 +21,94 @@ import xgboost as xgb
 # print('RAM memory % used:', psutil.virtual_memory()[2])
 
 
+def create_embeddings(config, model, tester):
+
+    if os.path.isfile(config.dump_path+'/train_embeddings_'+config.model_name+'_'+str(config.patch_size)+'.pth') == False:
+        train_embeddings = tester.test(model, data='train')
+        torch.save(train_embeddings, config.dump_path+'/train_embeddings_' +
+                   config.model_name+'_'+str(config.patch_size)+'.pth')
+        print('train embeddings created')
+    else:
+        print('train embeddings already exist')
+
+    if os.path.isfile(config.dump_path+'/test_embeddings_'+config.model_name+'_'+str(config.patch_size)+'.pth') == False:
+        test_embeddings = tester.test(model, data='test')
+        torch.save(test_embeddings, config.dump_path+'/test_embeddings_' +
+                   config.model_name+'_'+str(config.patch_size)+'.pth')
+        print('test embeddings created')
+    else:
+        print('test embeddings already exist')
+
+
+def get_embeddings(config):
+    train_embeddings = torch.load(
+        config.dump_path+'/train_embeddings_' +
+        config.model_name+'_'+str(config.patch_size)+'.pth')
+    test_embeddings = torch.load(
+        config.dump_path+'/test_embeddings_' +
+        config.model_name+'_'+str(config.patch_size)+'.pth')
+
+    return train_embeddings.cpu().detach().numpy(), test_embeddings.cpu().detach().numpy()
+
+
+def test_mult(config, device, train_data, test_data, num_runs, verbose=0):
+    '''
+    function to run classification with subsequent testing multiple times
+    '''
+
+    clf = get_classifier(config, verbose, device)
+    print('classifier used: ', config.clf)
+
+    # check if already some accuracies are stored and continue from there
+    if os.path.isfile(config.dump_path + '/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl') == True:
+        with open(config.dump_path + '/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl', 'rb') as data:
+            acc_coll = pickle.load(data)
+        acc_coll = clean_acc(acc_coll, num_runs)
+
+    else:
+        acc_coll = np.zeros(num_runs)
+
+    runs_completed = sum(acc_coll != 0)
+
+    for i in range(runs_completed, num_runs):
+        print('run ' + str(i+1) + ' of ' + str(num_runs))
+        print('RAM used: ', psutil.virtual_memory()[2])
+        print('processing data...')
+        train_features, train_labels = process_data(
+            train_data, config, mode='train')
+        test_features, test_labels = process_data(
+            test_data, config, mode='test')
+        print('fitting classifier...')
+        clf.fit(train_features, train_labels)
+        pred_labels = clf.predict(train_features)
+
+        acc = accuracy_score(train_labels, pred_labels)
+
+        print('Training accuracy score of: ', acc)
+
+        print('predicting labels...')
+        pred_labels = clf.predict(test_features)
+        acc = accuracy_score(test_labels, pred_labels)
+        acc_coll[i] = acc
+        with open(config.dump_path + '/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl', 'wb') as fp:
+            pickle.dump(acc_coll, fp)
+        print('test accuracy of ' + str(round(acc*100, 2))+'%')
+        print('--------------------')
+        print('\n')
+        del train_features, train_labels, test_features, test_labels
+
+    with open(config.dump_path + '/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl', 'wb') as fp:
+        pickle.dump(acc_coll, fp)
+    print('Finished runs')
+    print('average accuracy: ', round(np.mean(acc_coll), 2), '%')
+    print('accuracies go from ', round(np.min(acc_coll), 2),
+          '% to ', round(np.max(acc_coll), 2), '%')
+
+
 def classify(config, data):
 
     # get the classifier
-    clf = get_classifier(config)
+    clf = get_classifier(config, verbose=3)
 
     # process data into positive and negative samples
     print('processing data...')
@@ -58,20 +142,21 @@ def predict(config, data):
     print('Accuracy score of: ', acc)
 
 
-def get_classifier(config):
+def get_classifier(config, verbose=0, device=None):
 
     if config.clf == 'linear':
-        clf = LogisticRegression()
+        clf = LogisticRegression(verbose=verbose)
 
     if config.clf == 'xgboost':
         clf = XGBoost()
 
     if config.clf == 'random_forest':
-        clf = RandomForestClassifier(oob_score=True, verbose=3, n_jobs=-1)
+        clf = RandomForestClassifier(
+            oob_score=True, verbose=verbose, n_jobs=-1)
 
     if config.clf == 'MLP':
         clf = MLPClassifier(
-            max_iter=200, early_stopping=True, verbose=3)
+            max_iter=200, early_stopping=True, verbose=verbose)
 
     return clf
 
@@ -118,40 +203,22 @@ def load_clf(config):
     return clf
 
 
-def process_data(data, config):
-
-    # data in the format (samples * 2xfeatures)
-    # in addition to positive samples (which are given by definition) create negative ones by randomly
-    # combining satellite features (1st half) and drone features (2nd half) of different samples
-
-    pos_labels = np.ones(len(data), dtype=np.int8)
-
-    if config.run_mode == 'test':
-        return data, pos_labels
-
-    negatives = None
-    for i in range(config.neg_samples_factor):
-        data_shuffled = data.copy()
-        np.random.shuffle(data_shuffled)
-        negative_samples = produce_negative_samples(data_shuffled)
-        if negatives is None:
-            negatives = negative_samples
-        else:
-            negatives = np.append(negatives, negative_samples, axis=0)
-
-    neg_labels = np.zeros(len(negatives), dtype=np.int8)
-
-    return np.concatenate((data, negatives), axis=0), np.concatenate((pos_labels, neg_labels), axis=0, dtype=np.int8)
-
-
 class LogisticRegression(torch.nn.Module):
-    def __init__(self):
+    '''
+    linear classifier
+    '''
+
+    def __init__(self, verbose):
         super(LogisticRegression, self).__init__()
         self.epochs = 100
         self.input_dim = 4096
         self.output_dim = 1
         self.learning_rate = 0.001
         self.linear = torch.nn.Linear(self.input_dim, self.output_dim)
+        if verbose > 0:
+            self.verbose = True
+        else:
+            self.verbose = False
 
     def forward(self, x):
         outputs = torch.sigmoid(self.linear(x))
@@ -163,7 +230,7 @@ class LogisticRegression(torch.nn.Module):
             self.parameters(), lr=self.learning_rate)
 
         iter = 0
-        for epoch in tqdm(range(int(self.epochs)), desc='Training Epochs'):
+        for epoch in tqdm(range(int(self.epochs)), desc='Training Epochs', disable=self.verbose):
             x = torch.from_numpy(X_train)
             labels = torch.from_numpy(y_train).type(torch.float)
             self.optimizer.zero_grad()  # Setting our stored gradients equal to zero
@@ -184,8 +251,9 @@ class LogisticRegression(torch.nn.Module):
                     correct += np.sum(torch.squeeze(outputs).round().detach().numpy()
                                       == labels.detach().numpy())
                     accuracy = 100 * correct/total
-                    print(
-                        f"Train -  Loss: {loss.item()}. Accuracy: {accuracy}\n")
+                    if self.verbose > 1:
+                        print(
+                            f"Train -  Loss: {loss.item()}. Accuracy: {accuracy}\n")
 
     def predict(self, X_test):
         with torch.no_grad():
@@ -196,6 +264,10 @@ class LogisticRegression(torch.nn.Module):
 
 
 class XGBoost():
+    '''
+    boosting classifier
+    '''
+
     def __init__(self):
         super(XGBoost, self).__init__()
 

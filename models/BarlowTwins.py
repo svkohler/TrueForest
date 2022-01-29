@@ -14,7 +14,7 @@ class BarlowTwins(nn.Module):
     def __init__(self, base_encoder, config):
         super().__init__()
         self.config = config
-        self.encoder = base_encoder(pretrained=False)
+        self.encoder = base_encoder(zero_init_residual=True)
         self.encoder.fc = nn.Identity()
 
         # projector

@@ -17,7 +17,10 @@ from utils import *
 from models.load_model import *
 from models.classifier import *
 
-# parser to select desired
+print('RAM used: ', psutil.virtual_memory()[2])
+
+
+# parser to select desired arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('--config',
                     default='custom',
@@ -28,7 +31,7 @@ parser.add_argument('--gpu_ids',
                     default=[0],
                     nargs="+",
                     type=int,
-                    help='select IDs of GPUs to use,')
+                    help='select IDs of GPUs to use')
 parser.add_argument('--batch_size',
                     default=-1,
                     type=int,
@@ -40,7 +43,11 @@ parser.add_argument('--patch_size',
 parser.add_argument('--print_freq',
                     default=-1,
                     type=int,
-                    help='insert area size')
+                    help='how frequently info is printed')
+parser.add_argument('--num_runs',
+                    default=100,
+                    type=int,
+                    help='how many test runs should be performed')
 args = parser.parse_args()
 
 # load config
@@ -51,6 +58,7 @@ except:
 
 # process command line input variables
 config.num_gpus = len(args.gpu_ids)
+config.num_runs = args.num_runs
 
 if args.batch_size != -1:
     config.batch_size = args.batch_size
@@ -61,7 +69,7 @@ if args.patch_size != -1:
 if args.print_freq != -1:
     config.print_freq = args.print_freq
 
-
+# get hostname to set the correct paths
 hostname = socket.gethostname()
 paths_setter(hostname, config)
 
@@ -69,6 +77,7 @@ print('Working on model: ', config.model_name,
       '. With base architecture: ', config.base_architecture)
 print('Area Size: ', config.patch_size)
 print('Batch Size: ', config.batch_size)
+print('RAM used: ', psutil.virtual_memory()[2])
 
 # check if connected to virtual environment
 # check_venv()
@@ -84,60 +93,42 @@ if not os.path.exists(config.dump_path):
 device = torch.device(
     f"cuda:{args.gpu_ids[0]}" if torch.cuda.is_available() else "cpu")
 
-# create the dataset
-dataset = TrueForrestDataset(config, mode='train')
+# create training dataset
+train_dataset = TrueForestDataset(config, mode='train')
+test_dataset = TrueForestDataset(config, mode='test', transform=False)
 
 # create the dataloader
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=config.batch_size, shuffle=config.shuffle,
-                                         num_workers=config.num_workers, pin_memory=config.pin_memory, drop_last=True)
+train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=config.batch_size, shuffle=config.shuffle,
+                                               num_workers=config.num_workers, pin_memory=config.pin_memory, drop_last=True)
+test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=config.batch_size, shuffle=config.shuffle,
+                                              num_workers=config.num_workers, pin_memory=config.pin_memory, drop_last=True)
+
+config.train_dataloader = train_dataloader
+config.test_dataloader = test_dataloader
 
 # load the model
-model, trainer, tester = load_model(config, dataloader, device)
-# initiate parallel GPUs
-print("You have ", torch.cuda.device_count(), "GPUs available.")
+model, trainer, tester = load_model(config, device)
 
+# initiate parallel GPUs
+print("Your setup has ", torch.cuda.device_count(), "GPUs.")
 # wrap model for multiple GPU usage
 model = nn.DataParallel(model, args.gpu_ids)
-
 # send model to GPU
 model.to(device)
+print('RAM used: ', psutil.virtual_memory()[2])
 
 # train the model and save best version
-if config.run_mode in ['all', 'train', 'train_encoder']:
+if config.run_mode in ['train_encoder']:
     trainer.train(model)
 
-# get embeddings from trained model and train a binary classifier with train dataset
-if config.run_mode in ['all', 'train', 'train_classifier']:
-    if os.path.isfile(config.dump_path+'/embeddings_'+config.model_name+'_'+str(config.patch_size)+'.pth') == False:
-        embeddings = tester.test(model)
-        torch.save(embeddings, config.dump_path+'/embeddings_' +
-                   config.model_name+'_'+str(config.patch_size)+'.pth')
-    else:
-        embeddings = torch.load(
-            config.dump_path+'/embeddings_' +
-            config.model_name+'_'+str(config.patch_size)+'.pth')
+# Do for multiple runs: train classifier on training data and subsequently test on test data.
+if config.run_mode in ['test_mult']:
+    create_embeddings(config, model, tester)
+    train_embeddings, test_embeddings = get_embeddings(config)
 
-    print('embeddings shape: ', embeddings.shape)
+    similarity_embeddings(train_embeddings, config)
 
-    # get embeddings on CPU
-    embeddings = embeddings.cpu().detach().numpy()
+    test_mult(config, device, train_embeddings,
+              test_embeddings, num_runs=config.num_runs)
 
-    # calculate similarity measures
-    print('Similarities of embeddings: ')
-    similarities = similarity_embeddings(embeddings, config)
-    print(similarities)
-
-    classify(config, embeddings)
-
-# test binary classifier with test data set
-if config.run_mode in ['test']:
-    # replace dataloader by test data
-    dataset = TrueForrestDataset(config, mode='test')
-    tester.dataloader = torch.utils.data.DataLoader(dataset, batch_size=config.batch_size, shuffle=config.shuffle,
-                                                    num_workers=config.num_workers, pin_memory=config.pin_memory, drop_last=True)
-    # get embeddings from pretrained model
-    embeddings = tester.test(model)
-    # predict test data
-    predict(config, embeddings.cpu().detach().numpy())
-
-print('Successful.')
+print('Successful execution.')

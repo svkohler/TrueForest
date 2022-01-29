@@ -16,6 +16,17 @@ h1 {
   text-align: center;
 }
 
+h4 {
+  font-size: 1.5em;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+h5 {
+  font-size: 1em;
+  margin-top: 0.5em;
+}
+
 .main {
   border-width: 5px;
   border-color: magenta;
@@ -53,6 +64,7 @@ h1 {
 
 .coordinate_input_label {
   display: block;
+  font-size: 0.9em;
 }
 
 .coordinate_input {
@@ -62,4 +74,21 @@ h1 {
 .form_drone_img {
   height: 0px;
   overflow: clip;
+}
+
+.coordinates {
+  display: block;
+}
+
+.coordinate_input_container {
+  display: flex;
+}
+
+.inputWrapper {
+  display: block;
+}
+
+.long_lat_container {
+  display: block;
+  margin-right: 5em;
 }

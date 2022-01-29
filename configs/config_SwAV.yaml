@@ -7,7 +7,7 @@ seed_run: 1
 seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
 
 # run mode
-run_mode: "all" # choices: all, train, train_encoder, train_classifier, test
+run_mode: "train_encoder" # choices: all, train, train_encoder, train_classifier, test
 
 # data information
 patch_size: 224
@@ -21,34 +21,34 @@ num_hidden: 2048 # size of hidden layer in projection head
 num_projection: 128 # size after projection
 
 # training parameter
-num_epochs: 2
-batch_size: 8
+num_epochs: 100
+batch_size: 256
 shuffle: True
-num_workers: 1
+num_workers: 16
 pin_memory: True
 fp16_precision: True
 
 # model specific training parameters
 temperature: 0.1 # --used
 normalize: True
-epsilon: 0.05 # --used
+epsilon: 0.03 # --used
 queue_length: 3840
-epoch_queue_starts: 5
+epoch_queue_starts: 15
 sinkhorn_iterations: 3
-freeze_prototypes_niters: 313
+freeze_prototypes_niters: 5005
 num_prototypes: 3000
 
 # learning rate schedule
 init_lr: 0.6 # --used
-final_lr: 0
+final_lr: 0.0006 # --used
 momentum: 0.9
 weight_decay: 0.000001 # --used
-warm_up_epochs: 10 # --used
+warm_up_epochs: 0 # --used
 init_warm_up_lr: 0
 ema_factor: 0.99
 
 # log
-print_freq: 10
+print_freq: 100
 
 # whether to transform images
 transforms:
@@ -75,7 +75,7 @@ transforms:
 # binary classifier
 classify: True
 clf: "xgboost" # choices random_forest, linear, xgboost, MLP
-neg_samples_factor: 3 # positive int
+neg_samples_factor: 1 # positive int
 
 # ------------------------
 

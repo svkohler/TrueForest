@@ -7,7 +7,7 @@ seed_run: 1
 seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
 
 # run mode
-run_mode: "test" # choices: all, train, train_encoder, train_classifier, test
+run_mode: "train_encoder" # choices: all, train, train_encoder, train_classifier, test
 
 # data information
 patch_size: 224
@@ -21,8 +21,8 @@ num_hidden: 512 # size of hidden layer in projection head
 num_projection: 64 # size after projection
 
 # training parameter
-num_epochs: 4
-batch_size: 64
+num_epochs: 100
+batch_size: 256
 shuffle: True
 num_workers: 12
 pin_memory: True

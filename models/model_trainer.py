@@ -13,17 +13,16 @@ from utils import LARC, LARS
 import numpy as np
 import math
 import torch.distributed as dist
-from utils import DINOLoss
 
 
 # ------------------- SimSiam trainer -------------------- #
 
 class SimSiam_trainer(object):
-    def __init__(self, config, dataloader, device, fix_pred_lr=True):
+    def __init__(self, config, device, fix_pred_lr=True):
         self.config = config
         self.fix_pred_lr = fix_pred_lr
         self.device = device
-        self.dataloader = dataloader
+        self.dataloader = config.train_dataloader
 
     def adjust_learning_rate(self, optimizer, epoch, config):
         """Decay the learning rate based on schedule"""
@@ -113,9 +112,9 @@ class SimSiam_trainer(object):
 
 class SimCLR_trainer(object):
 
-    def __init__(self, config, dataloader, device):
+    def __init__(self, config, device):
         self.config = config
-        self.dataloader = dataloader
+        self.dataloader = config.train_dataloader
         self.device = device
         self.criterion = torch.nn.CrossEntropyLoss().to(self.device)
 
@@ -222,9 +221,9 @@ class SimCLR_trainer(object):
 
 class MoCo_trainer(object):
 
-    def __init__(self, config, dataloader, device):
+    def __init__(self, config, device):
         self.config = config
-        self.dataloader = dataloader
+        self.dataloader = config.train_dataloader
         self.device = device
         self.T = 1.0
 
@@ -316,9 +315,9 @@ class MoCo_trainer(object):
 
 class BarlowTwins_trainer(object):
 
-    def __init__(self, config, dataloader, device):
+    def __init__(self, config, device):
         self.config = config
-        self.dataloader = dataloader
+        self.dataloader = config.train_dataloader
         self.device = device
 
     def off_diagonal(self, x):
@@ -329,7 +328,7 @@ class BarlowTwins_trainer(object):
 
     def adjust_learning_rate(self, optimizer, step):
         max_steps = self.config.num_epochs * len(self.dataloader)
-        warmup_steps = 10 * len(self.dataloader)
+        warmup_steps = self.config.warm_up_epochs * len(self.dataloader)
         base_lr = self.config.batch_size / 256
         if step < warmup_steps:
             lr = base_lr * step / warmup_steps
@@ -392,14 +391,18 @@ class BarlowTwins_trainer(object):
                 with autocast(enabled=self.config.fp16_precision):
                     pred_drone, pred_satellite = model(drone, satellite)
                     self.adjust_learning_rate(self.optimizer, i)
+                    # print('output: ', pred_drone)
+                    # print('bn: ', model.module.bn(pred_drone))
 
                     # empirical cross-correlation matrix
                     c = model.module.bn(
                         pred_drone).T @ model.module.bn(pred_satellite)
-
+                    c = c.div_(self.config.batch_size)
+                    # print('c: ', c)
                     on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
                     off_diag = self.off_diagonal(c).pow_(2).sum()
                     loss = on_diag + self.config.epsilon * off_diag
+                    # print('loss: ', loss)
 
                 losses.update(loss.item(), self.config.batch_size)
 
@@ -417,10 +420,6 @@ class BarlowTwins_trainer(object):
                 if i % self.config.print_freq == 0:
                     progress.display(i)
 
-            # warmup for the first 10 epochs
-            if epoch >= 10:
-                self.scheduler.step()
-
             # check if current epoch is best epoch and save model state_dict
             losses.check_best_epoch(model, epoch, self.config)
 
@@ -429,9 +428,9 @@ class BarlowTwins_trainer(object):
 
 class BYOL_trainer(object):
 
-    def __init__(self, config, dataloader, device):
+    def __init__(self, config, device):
         self.config = config
-        self.dataloader = dataloader
+        self.dataloader = config.train_dataloader
         self.device = device
 
     def loss_fn(self, x, y):
@@ -530,12 +529,68 @@ class BYOL_trainer(object):
 
 # ------------------- DINO trainer -------------------- #
 
+class DINOLoss(nn.Module):
+    def __init__(self, out_dim, ncrops, warmup_teacher_temp, teacher_temp,
+                 warmup_teacher_temp_epochs, nepochs, student_temp=0.1,
+                 center_momentum=0.9):
+        super().__init__()
+        self.student_temp = student_temp
+        self.center_momentum = center_momentum
+        self.ncrops = ncrops
+        self.register_buffer("center", torch.zeros(1, out_dim))
+        # we apply a warm up for the teacher temperature because
+        # a too high temperature makes the training instable at the beginning
+        self.teacher_temp_schedule = np.concatenate((
+            np.linspace(warmup_teacher_temp,
+                        teacher_temp, warmup_teacher_temp_epochs),
+            np.ones(nepochs - warmup_teacher_temp_epochs) * teacher_temp
+        ))
+
+    def forward(self, student_output, teacher_output, epoch):
+        """
+        Cross-entropy between softmax outputs of the teacher and student networks.
+        """
+        student_out = student_output / self.student_temp
+        student_out = student_out.chunk(self.ncrops)
+
+        # teacher centering and sharpening
+        temp = self.teacher_temp_schedule[epoch]
+        teacher_out = F.softmax((teacher_output - self.center) / temp, dim=-1)
+        teacher_out = teacher_out.detach().chunk(2)
+
+        total_loss = 0
+        n_loss_terms = 0
+        for iq, q in enumerate(teacher_out):
+            for v in range(len(student_out)):
+                if v == iq:
+                    # we skip cases where student and teacher operate on the same view
+                    continue
+                loss = torch.sum(-q *
+                                 F.log_softmax(student_out[v], dim=-1), dim=-1)
+                total_loss += loss.mean()
+                n_loss_terms += 1
+        total_loss /= n_loss_terms
+        self.update_center(teacher_output)
+        return total_loss
+
+    @torch.no_grad()
+    def update_center(self, teacher_output):
+        """
+        Update center used for teacher output.
+        """
+        batch_center = torch.sum(teacher_output, dim=0, keepdim=True)
+        batch_center = batch_center / (len(teacher_output))
+
+        # ema update
+        self.center = self.center * self.center_momentum + \
+            batch_center * (1 - self.center_momentum)
+
 
 class DINO_trainer(object):
 
-    def __init__(self, config, dataloader, device):
+    def __init__(self, config, device):
         self.config = config
-        self.dataloader = dataloader
+        self.dataloader = config.train_dataloader
         self.device = device
 
     def get_params_groups(self, model):
@@ -576,7 +631,7 @@ class DINO_trainer(object):
             0.04,
             self.config.warm_up_epochs,
             self.config.num_epochs,
-        ).cuda()
+        ).to(self.device)
 
         # define the optimizer
         params_groups = self.get_params_groups(model.module.encoder)
@@ -635,10 +690,9 @@ class DINO_trainer(object):
                 data_time.update(time.time() - end)
 
                 # compute output and loss
-                teacher_out_drone = model.module.teacher(drone)
-                teacher_out_sat = model.module.teacher(satellite)
-                student_out_drone = model.module.encoder(drone)
-                student_out_sat = model.module.encoder(satellite)
+                teacher_out_drone, teacher_out_sat, student_out_drone, student_out_sat = model(
+                    drone, satellite)
+
                 loss = criterion(torch.cat((teacher_out_drone, teacher_out_sat), 0), torch.cat(
                     (student_out_drone, student_out_sat), 0), epoch)
 
@@ -673,9 +727,9 @@ class DINO_trainer(object):
 
 class SwAV_trainer(object):
 
-    def __init__(self, config, dataloader, device):
+    def __init__(self, config, device):
         self.config = config
-        self.dataloader = dataloader
+        self.dataloader = config.train_dataloader
         self.device = device
 
     def train(self, model):
@@ -736,7 +790,8 @@ class SwAV_trainer(object):
             use_the_queue = False
 
             end = time.time()
-
+            for param_group in self.optimizer.param_groups:
+                print('Learning rate: ', param_group["lr"])
             # loop through batches
             for i, (satellite, drone) in enumerate(self.dataloader):
                 # send data to GPU
@@ -772,7 +827,6 @@ class SwAV_trainer(object):
                 output[1::2, :] = output_sat
 
                 embedding = embedding.detach()
-                output = output.detach()
 
                 # save batch size
                 bs = self.config.batch_size
@@ -842,7 +896,7 @@ class SwAV_trainer(object):
     def init_queue(self):
         return torch.zeros(
             len([0, 1]),
-            self.config.queue_length // self.config.num_gpus,
+            self.config.queue_length,
             self.config.num_features,
         ).cuda()
 
@@ -850,7 +904,7 @@ class SwAV_trainer(object):
     def distributed_sinkhorn(self, out):
         # Q is K-by-B for consistency with notations from our paper
         Q = torch.exp(out / self.config.epsilon).t()
-        B = Q.shape[1] * self.config.num_gpus  # number of samples to assign
+        B = Q.shape[1]  # number of samples to assign
         K = Q.shape[0]  # how many prototypes
 
         # make the matrix sums to 1
@@ -877,10 +931,10 @@ class SwAV_trainer(object):
 
 
 class Triplet_trainer(object):
-    def __init__(self, config, dataloader, device):
+    def __init__(self, config, device):
         self.config = config
         self.device = device
-        self.dataloader = dataloader
+        self.dataloader = config.train_dataloader
 
     def train(self, model):
 

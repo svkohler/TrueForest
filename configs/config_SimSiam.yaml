@@ -7,7 +7,7 @@ seed_run: 1
 seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
 
 # run mode
-run_mode: "train_classifier" # choices: all, train, train_encoder, train_classifier, test
+run_mode: "test_mult" # choices: train, train_encoder, train_classifier, test, test_mult
 
 # data information
 patch_size: 224
@@ -74,7 +74,7 @@ transforms:
 
 # binary classifier
 classify: True
-clf: "xgboost" # choices random_forest, linear, xgboost, MLP
+clf: "MLP" # choices random_forest, linear, xgboost, MLP
 neg_samples_factor: 1 # positive int
 
 # ------------------------

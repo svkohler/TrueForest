@@ -14,15 +14,15 @@ from models.model_trainer import SimCLR_trainer, SimSiam_trainer, BYOL_trainer, 
 from models.model_tester import Tester, Triplet_tester
 
 
-def load_model(config, dataloader, device):
+def load_model(config, device):
 
     # check for the right model and return it
     if config.model_name == 'Triplet':
         base_encoder = models.__dict__[config.base_architecture]
         model = Triplet(base_encoder=base_encoder, config=config)
 
-        trainer = Triplet_trainer(config, dataloader, device)
-        tester = Triplet_tester(config, dataloader, device)
+        trainer = Triplet_trainer(config, device)
+        tester = Triplet_tester(config, device)
 
         return model, trainer, tester
 
@@ -30,8 +30,8 @@ def load_model(config, dataloader, device):
         base_encoder = models.__dict__[config.base_architecture]
         model = SimSiam(base_encoder=base_encoder, config=config)
 
-        trainer = SimSiam_trainer(config, dataloader, device)
-        tester = Tester(config, dataloader, device)
+        trainer = SimSiam_trainer(config, device)
+        tester = Tester(config, device)
 
         return model, trainer, tester
 
@@ -39,43 +39,41 @@ def load_model(config, dataloader, device):
         base_encoder = models.__dict__[config.base_architecture]
         model = ResNetSimCLR(
             base_model=base_encoder, config=config)
-        trainer = SimCLR_trainer(config, dataloader, device)
-        tester = Tester(config, dataloader, device)
+        trainer = SimCLR_trainer(config, device)
+        tester = Tester(config, device)
 
         return model, trainer, tester
 
     if config.model_name == 'BYOL':
         base_encoder = models.__dict__[config.base_architecture]
         model = BYOL(base_encoder=base_encoder, config=config)
-        trainer = BYOL_trainer(config, dataloader, device)
-        tester = Tester(config, dataloader, device)
+        trainer = BYOL_trainer(config, device)
+        tester = Tester(config, device)
 
         return model, trainer, tester
 
     if config.model_name == 'BarlowTwins':
         base_encoder = models.__dict__[config.base_architecture]
         model = BarlowTwins(base_encoder=base_encoder, config=config)
-        trainer = BarlowTwins_trainer(config, dataloader, device)
-        tester = Tester(config, dataloader, device)
+        trainer = BarlowTwins_trainer(config, device)
+        tester = Tester(config, device)
 
         return model, trainer, tester
 
     if config.model_name == 'MoCo':
-        if config.base_architecture.startswith('vit'):
-            base_encoder = ViT_MoCo.__dict__[config.base_architecture]
-        else:
-            base_encoder = models.__dict__[config.base_architecture]
+
+        base_encoder = models.__dict__[config.base_architecture]
         model = MoCo(base_encoder=base_encoder, config=config)
-        trainer = MoCo_trainer(config, dataloader, device)
-        tester = Tester(config, dataloader, device)
+        trainer = MoCo_trainer(config, device)
+        tester = Tester(config, device)
 
         return model, trainer, tester
 
     if config.model_name == 'DINO':
         base_encoder = ViT_DINO.__dict__[config.base_architecture]
         model = DINO(base_encoder=base_encoder, config=config)
-        trainer = DINO_trainer(config, dataloader, device)
-        tester = Tester(config, dataloader, device)
+        trainer = DINO_trainer(config, device)
+        tester = Tester(config, device)
 
         return model, trainer, tester
 
@@ -89,7 +87,7 @@ def load_model(config, dataloader, device):
                            normalize=config.normalize, output_dim=config.num_projection,
                            hidden_mlp=config.num_hidden, nmb_prototypes=config.num_prototypes)
 
-        trainer = SwAV_trainer(config, dataloader, device)
-        tester = Tester(config, dataloader, device)
+        trainer = SwAV_trainer(config, device)
+        tester = Tester(config, device)
 
         return model, trainer, tester

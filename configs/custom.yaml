@@ -7,14 +7,14 @@ seed_run: 1
 seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
 
 # run mode
-run_mode: "train_encoder" # choices: all, train, train_encoder, train_classifier, test
+run_mode: "test_mult" # choices: train_encoder, train_classifier, test
 
 # data information
 patch_size: 224
 location: "Central_Valley"
 
 # model specifications
-model_name: "MoCo_v1"
+model_name: "SimSiam"
 base_architecture: "resnet50" # choices: resnet50, resnet101, wide_resnet50_2, wide_resnet101_2
 num_features: 128 # size of feature vector which is used for loss function
 num_hidden: 2048 # size of hidden layer in projection head

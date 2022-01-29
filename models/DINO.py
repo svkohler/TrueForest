@@ -29,6 +29,14 @@ class DINO(nn.Module):
             DINOHead(embed_dim, self.config.num_projection),
         )
 
+    def forward(self, drone, satellite):
+        teacher_out_drone = self.teacher(drone)
+        teacher_out_sat = self.teacher(satellite)
+        student_out_drone = self.encoder(drone)
+        student_out_sat = self.encoder(satellite)
+
+        return teacher_out_drone, teacher_out_sat, student_out_drone, student_out_sat
+
 
 def drop_path(x, drop_prob: float = 0., training: bool = False):
     if drop_prob == 0. or not training:

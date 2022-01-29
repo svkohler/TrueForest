@@ -5,18 +5,29 @@ from tqdm import tqdm
 
 
 class Tester(object):
-    def __init__(self, config, dataloader, device):
+    def __init__(self, config, device):
         self.config = config
         self.device = device
-        self.dataloader = dataloader
 
-    def test(self, model):
+    def test(self, model, data, verbose=True):
+        if data == 'train':
+            self.dataloader = self.config.train_dataloader
+        elif data == 'test':
+            self.dataloader = self.config.test_dataloader
+        else:
+            raise ValueError(
+                'please provide data type. either "train" or "test"')
         # load the model
-        checkpoint = torch.load(
-            self.config.dump_path + '/'+self.config.model_name+'_best_epoch_' + str(self.config.patch_size)+'.pth')
+        try:
+            checkpoint = torch.load(
+                self.config.dump_path + '/'+self.config.model_name+'_best_epoch_' + str(self.config.patch_size)+'.pth')
+            model.load_state_dict(checkpoint['model_state_dict'])
+            if verbose:
+                print('Successfully loaded model.')
+        except ValueError:
+            print('there seems to be no correspondig model state saved in ',
+                  self.config.dump_path)
 
-        model.load_state_dict(checkpoint['model_state_dict'])
-        print('Successfully loaded model.')
         # trim the model to the necessary layers
         if self.config.model_name == 'BYOL':
             encoder = nn.Sequential(
@@ -34,7 +45,8 @@ class Tester(object):
         # start testing
         embeddings = torch.tensor([], requires_grad=False).to(self.device)
 
-        print('Start creating embeddings...')
+        if verbose:
+            print('Start creating embeddings...')
         for i, (drone, satellite) in enumerate(tqdm(self.dataloader)):
             # send to GPU
             drone = drone.to(self.device)
@@ -48,18 +60,24 @@ class Tester(object):
             concat = torch.squeeze(torch.cat((drone_emb, sat_emb), dim=1))
             # append embeddings
             embeddings = torch.cat((embeddings, concat), dim=0)
-
-        print('Successfully created embeddings.')
+        if verbose:
+            print('Successfully created embeddings.')
         return embeddings
 
 
 class Triplet_tester(object):
-    def __init__(self, config, dataloader, device):
+    def __init__(self, config, device):
         self.config = config
         self.device = device
-        self.dataloader = dataloader
 
-    def test(self, model):
+    def test(self, data, model):
+        if data == 'train':
+            self.dataloader = self.config.train_dataloader
+        elif data == 'test':
+            self.dataloader = self.config.test_dataloader
+        else:
+            raise ValueError(
+                'please provide data type. either "train" or "test"')
         # load the model
         checkpoint = torch.load(
             self.config.dump_path + '/'+self.config.model_name+'_best_epoch_' + str(self.config.patch_size)+'.pth')

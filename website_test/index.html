@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrueForest Validator</title>
+    <link rel="icon" type="image/png" href="./src/images/tree.png">
+    <link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+    <div class='main'>
+        <h1>TrueForest</h1>
+        <div class='coordinates'>
+            <h4>Please enter coordinates (decimal degrees)</h4>
+            <form id="form_coordinates" target="coordinates_frame" action="/upload_coordinates" class="form_coordinates" name="form_coordinates" method="post" enctype="multipart/form-data">
+                <div id="bottom_left" class='coordinate_input_container'>
+                    <div class="long_lat_container">
+                        <h5>Bottom left corner</h5>
+                        <div class="inputWrapper">
+                            <label class="coordinate_input_label" for="bottom_left_long">long</label>
+                            <input id="bottom_left_long" name="bottom_left_long" class='coordinate_input' type="number" step="any" min="-180" max="180" value="insert">
+                        </div>
+                        
+                        <div class="inputWrapper">
+                            <label class="coordinate_input_label" for="bottom_left_lat">lat</label>
+                            <input id="bottom_left_lat" name="bottom_left_lat" class='coordinate_input' type="number" step="any" min="-90" max="90" value="insert">
+                        </div>
+                    </div>
+                </div>
+                <div id="top_right" class='coordinate_input_container'>
+                    <div class="long_lat_container">
+                        <h5>Top right corner</h5>
+                        <div class="inputWrapper">
+                            <label class="coordinate_input_label" for="top_right_long">long</label>
+                            <input id="top_right_long" name="top_right_long" class='coordinate_input' type="number" step="any" min="-180" max="180" value="insert">
+                        </div>
+                        <div class="inputWrapper">
+                            <label class="coordinate_input_label" for="top_right_lat">lat</label>
+                            <input id="top_right_lat" name="top_right_lat" class='coordinate_input' type="number" step="any" min="-90" max="90" value="insert">         
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <iframe name="coordinates_frame" style="display:none;"></iframe>
+        <form id="form_drone_img" class="form_drone_img" action="/upload_drone_img" method="post" enctype="multipart/form-data">
+            <input type="file" id="fileUpload" name="drone_img" />
+        </form>
+        <div class='DD_Sat'>
+            <div id="drop_zone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);" class='DD'>
+                <p>Drag one or more files to this Drop Zone ...</p>
+            </div>
+            <div class='Sat'>
+                <p>Here corresponding satellite image will be shown</p>
+            </div>
+        </div>
+        <div class="buttons-1">
+            <button id="clear" onclick="clearDD(event);">Clear</button>
+            <button id="get_sat" onclick="submitCoordinatesForm();">Get Satellite image</button>
+        </div>
+        <div>
+            <button onclick="submitImgForm()">Validate</button>
+        </div>
+    </div>
+    <a href="/about">About</a>
+    <script type="text/javascript" src="static/script.js"></script> 
+</body>
+</html>

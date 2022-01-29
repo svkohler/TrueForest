@@ -28,7 +28,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--patch_size',
                     type=int,
                     help='Choose patch size for images in meters',
-                    choices=[224, 448, 1120, 2240, 5600, 10080]
+                    choices=[224, 448, 672, 896, 1120]
                     )
 parser.add_argument('--data_type',
                     type=str,
