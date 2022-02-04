@@ -943,7 +943,7 @@ class Triplet_trainer(object):
                                               transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
         train_dataset = datasets.ImageFolder(
-            self.config.data_store+'/triplet/train', transform=train_transform)
+            self.config.data_store+'/triplet/'+self.config.location+'/train/'+str(self.config.patch_size), transform=train_transform)
 
         self.encoder_optimizer = torch.optim.Adam(
             model.module.encoder.parameters(), lr=0.0001, weight_decay=0.0001)

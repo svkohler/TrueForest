@@ -70,6 +70,34 @@ def paths_setter(hostname, config):
         config.dump_path = "/mnt/ds3lab-scratch/svkohler/dump"
 
 
+class AccuracyCollector(object):
+    def __init__(self, num_runs):
+        self.dict = {'runs_completed': 0}
+        self.num_runs = num_runs
+
+    def update(self, location, acc, run):
+        if location in self.dict.keys():
+            self.dict[location][run] = acc
+        else:
+            self.dict[location] = np.zeros(self.num_runs)
+            self.dict[location][run] = acc
+
+    def clean(self):
+        fewest_comp_runs = 100
+        for key in self.dict.keys():
+            if key != 'runs_completed':
+                acc = self.dict[key]
+                acc = np.delete(acc, np.where(acc <= 0.1))
+                acc = np.delete(acc, np.where(acc == 1))
+                if len(acc) < fewest_comp_runs:
+                    fewest_comp_runs = len(acc)
+                arr = np.zeros(self.num_runs)
+                arr[:len(acc)] = acc
+                self.dict[key] = arr
+
+        self.dict['runs_completed'] = fewest_comp_runs
+
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
 
@@ -155,15 +183,15 @@ class TrueForestDataset(Dataset):
         self.satellite_rgb_dir = self.config.data_store + '/satellite_rgb/' + \
             config.location + '/' + self.mode + \
             '/' + str(config.patch_size) + '/'
-        self.satellite_nir_dir = self.config.data_store + '/satellite_nir/' + \
-            config.location + '/' + self.mode + \
-            '/' + str(config.patch_size) + '/'
+        # self.satellite_nir_dir = self.config.data_store + '/satellite_nir/' + \
+        #     config.location + '/' + self.mode + \
+        #     '/' + str(config.patch_size) + '/'
         self.drone_dir = self.config.data_store + '/drone/' + \
             config.location + '/' + self.mode + \
             '/' + str(config.patch_size) + '/'
         self.len = self.check_len()
         self.satellite_rgb_images = sorted(os.listdir(self.satellite_rgb_dir))
-        self.satellite_nir_images = sorted(os.listdir(self.satellite_nir_dir))
+        # self.satellite_nir_images = sorted(os.listdir(self.satellite_nir_dir))
         self.drone_images = sorted(os.listdir(self.drone_dir))
 
         # transformation parameter
@@ -248,7 +276,7 @@ class TrueForestDataset(Dataset):
     def check_len(self):
         try:
             len(os.listdir(self.satellite_rgb_dir)) == len(
-                os.listdir(self.drone_dir)) == len(os.listdir(self.satellite_nir_dir))
+                os.listdir(self.drone_dir))
             return len(os.listdir(self.satellite_rgb_dir))
         except:
             ValueError(
@@ -259,6 +287,43 @@ class TrueForestDataset(Dataset):
         helper function to get transform parameter in the correct range
         '''
         return range[0] + (range[1]-range[0])*random_nr
+
+
+def create_datasets(config):
+    test_dataset = {}
+    if config.location == 'all':
+        config.location = 'Central_Valley'
+        train_dataset = TrueForestDataset(config, mode='train')
+        for loc in ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee']:
+            config.location = loc
+            test_dataset[loc] = TrueForestDataset(
+                config, mode='test', transform=False)
+        config.location = 'all'
+    else:
+        swap = config.location
+        config.location = 'Central_Valley'
+        train_dataset = TrueForestDataset(config, mode='train')
+        config.location = swap
+        test_dataset[config.location] = TrueForestDataset(
+            config, mode='test', transform=False)
+
+    return train_dataset, test_dataset
+
+
+def create_dataloader(config):
+
+    train_dataset, test_dataset = create_datasets(config)
+
+    test_dataloader = {}
+
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=config.batch_size, shuffle=config.shuffle,
+                                                   num_workers=config.num_workers, pin_memory=config.pin_memory, drop_last=True)
+
+    for ds in test_dataset.keys():
+        test_dataloader[ds] = torch.utils.data.DataLoader(test_dataset[ds], batch_size=config.batch_size, shuffle=config.shuffle,
+                                                          num_workers=config.num_workers, pin_memory=config.pin_memory, drop_last=True)
+
+    return train_dataloader, test_dataloader
 
 
 class LARC(object):
@@ -385,31 +450,33 @@ class LARS(optim.Optimizer):
                 p.add_(mu, alpha=-g['lr'])
 
 
-def process_data(data, config, mode):
+def process_data(data, config, mode, perc_pos=0.9):
     '''
     data in the format (samples * 2xfeatures)
     in addition to positive samples (which are given by definition) create negative ones by randomly
     combining satellite features (1st half) and drone features (2nd half) of different samples
+    possible to not use all of the data in order to get divers datasets to train classifiers
     '''
 
-    pos_labels = np.ones(len(data), dtype=np.int8)
-
     if mode == 'test':
+        pos_labels = np.ones(len(data), dtype=np.int8)
         return data, pos_labels
+        #perc_pos = 1
 
-    negatives = None
-    for i in range(config.neg_samples_factor):
-        data_shuffled = data.copy()
-        np.random.shuffle(data_shuffled)
-        negative_samples = produce_negative_samples(data_shuffled)
-        if negatives is None:
-            negatives = negative_samples
-        else:
-            negatives = np.append(negatives, negative_samples, axis=0)
+    idx = np.random.choice(data.shape[0], size=int(
+        data.shape[0]*perc_pos), replace=False)
 
-    neg_labels = np.zeros(len(negatives), dtype=np.int8)
+    pos_labels = np.ones(len(idx), dtype=np.int8)
 
-    return np.concatenate((data, negatives), axis=0), np.concatenate((pos_labels, neg_labels), axis=0, dtype=np.int8)
+    data = data[idx, :]
+
+    data_shuffled = data.copy()
+    np.random.shuffle(data_shuffled)
+    negative_samples = produce_negative_samples(data_shuffled)
+
+    neg_labels = np.zeros(len(negative_samples), dtype=np.int8)
+
+    return np.concatenate((data, negative_samples), axis=0), np.concatenate((pos_labels, neg_labels), axis=0, dtype=np.int8)
 
 
 def produce_negative_samples(data):
@@ -425,15 +492,9 @@ def produce_negative_samples(data):
 
 def similarity_embeddings(data, config, verbose=True):
 
-    negatives = None
-    for i in range(config.neg_samples_factor):
-        data_shuffled = data.copy()
-        np.random.shuffle(data_shuffled)
-        negative_samples = produce_negative_samples(data_shuffled)
-        if negatives is None:
-            negatives = negative_samples
-        else:
-            negatives = np.append(negatives, negative_samples, axis=0)
+    data_shuffled = data.copy()
+    np.random.shuffle(data_shuffled)
+    negatives = produce_negative_samples(data_shuffled)
 
     pos_dot = np.apply_along_axis(dot_sim, 1, data)
     pos_cos = np.apply_along_axis(cos_sim, 1, data)
@@ -515,7 +576,10 @@ def similarity_embeddings(data, config, verbose=True):
         }
     }
 
-    with open(config.dump_path + '/'+config.model_name+'_similarities_'+str(config.patch_size)+'.json', 'wb') as fp:
+    if not os.path.exists(config.dump_path + '/similarities/'):
+        os.makedirs(config.dump_path + '/similarities/')
+
+    with open(config.dump_path + '/similarities/'+config.model_name+'_similarities_'+str(config.patch_size)+'.json', 'wb') as fp:
         pickle.dump(results, fp)
 
     if verbose:

@@ -21,8 +21,8 @@ num_hidden: 512 # size of hidden layer in projection head
 num_projection: 64 # size after projection
 
 # training parameter
-num_epochs: 100
-batch_size: 256
+num_epochs: 4
+batch_size: 64
 shuffle: True
 num_workers: 12
 pin_memory: True
@@ -74,9 +74,4 @@ transforms:
 
 # binary classifier
 classify: True
-clf: "linear" # choices random_forest, linear, xgboost, MLP
-neg_samples_factor: 1 # positive int
-
-# ------------------------
-
-best_epoch: None
+clf: "random_forest" # choices random_forest, linear, xgboost, MLP

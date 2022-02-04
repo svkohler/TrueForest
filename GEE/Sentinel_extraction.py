@@ -4,15 +4,16 @@ import numpy as np
 # ee.Authenticate()
 ee.Initialize()
 
-start_north = 36.45
-end_south = 37.05
-start_west = -120.25
-end_east = -119.65
-nr_steps = 4
-step_size = (start_north-end_south)/nr_steps
+START_NORTH = 30.025215750666348  # 30.93605976603369  # 35.236  #   #
+END_SOUTH = 30.139294239374312  # 30.98934617733734  # 35.377  #   #
+START_WEST = -84.54255356391563  # -89.2068111032426  # -86.06  #   #
+END_EAST = -84.41724075873985  # -89.14484134616252  # -85.89  #   #
+NR_STEPS = 2
 
-north_to_south = np.linspace(36.45, 37.05, nr_steps)
-west_to_east = np.linspace(-120.25, -119.65, nr_steps)
+step_size = abs((START_NORTH-END_SOUTH)/NR_STEPS)
+
+north_to_south = np.linspace(START_NORTH, END_SOUTH, NR_STEPS+1)
+west_to_east = np.linspace(START_WEST, END_EAST, NR_STEPS+1)
 
 
 def maskS2clouds(image):
@@ -29,15 +30,15 @@ def maskS2clouds(image):
     return image.updateMask(mask).divide(10000)
 
 
-for ns in north_to_south:
-    for we in west_to_east:
+for ns in north_to_south[:len(north_to_south)-1]:
+    for we in west_to_east[:len(west_to_east)-1]:
         area = ee.Geometry.Rectangle(
             we,
             ns,
             we+step_size,
             ns+step_size)
         sentinel = ee.ImageCollection(
-            'COPERNICUS/S2_SR').filterBounds(area).filterDate('2018-01-01', '2018-12-31').filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 1)).map(maskS2clouds)
+            'COPERNICUS/S2_SR').filterBounds(area).filterDate('2018-01-01', '2018-12-31').filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 20)).map(maskS2clouds)
 
         sentinel_SR_RGB = sentinel.select(['B4', 'B3', 'B2']).mosaic(
         ).visualize(bands=['B4', 'B3', 'B2'], min=0.0, max=0.3)
@@ -55,15 +56,15 @@ for ns in north_to_south:
         )
         task.start()
 
-        task = ee.batch.Export.image.toDrive(
-            image=sentinel_SR_NIR,
-            description='Sentinel_image_NIL_' + str(ns) + '_'+str(we),
-            scale=10,
-            folder='Sentinel',
-            region=area,
-            maxPixels=10e12,
-            fileFormat='GeoTIFF'
-        )
+        # task = ee.batch.Export.image.toDrive(
+        #     image=sentinel_SR_NIR,
+        #     description='Sentinel_image_NIL_' + str(ns) + '_'+str(we),
+        #     scale=10,
+        #     folder='Sentinel',
+        #     region=area,
+        #     maxPixels=10e12,
+        #     fileFormat='GeoTIFF'
+        # )
 
-        task.start()
+        # task.start()
         print('task done.')

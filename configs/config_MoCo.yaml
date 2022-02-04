@@ -74,7 +74,7 @@ transforms:
 
 # binary classifier
 classify: True
-clf: "linear" # choices random_forest, linear, xgboost, MLP
+clf: "xgboost" # choices random_forest, linear, xgboost, MLP
 neg_samples_factor: 1 # positive int
 
 # ------------------------

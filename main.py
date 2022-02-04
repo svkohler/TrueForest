@@ -27,6 +27,11 @@ parser.add_argument('--config',
                     # choices=['custom'],
                     help='Select one of the experiments described in our report or setup a custom config file'
                     )
+parser.add_argument('--run_mode',
+                    default='insert',
+                    choices=['train_encoder', 'test_mult'],
+                    help='Select run mode.'
+                    )
 parser.add_argument('--gpu_ids',
                     default=[0],
                     nargs="+",
@@ -44,6 +49,12 @@ parser.add_argument('--print_freq',
                     default=-1,
                     type=int,
                     help='how frequently info is printed')
+parser.add_argument('--clf',
+                    default='insert',
+                    type=str,
+                    choices=['linear', 'MLP', 'xgboost',
+                             'random_forest', 'MLP_1'],
+                    help='type of classifier to use')
 parser.add_argument('--num_runs',
                     default=100,
                     type=int,
@@ -59,6 +70,7 @@ except:
 # process command line input variables
 config.num_gpus = len(args.gpu_ids)
 config.num_runs = args.num_runs
+config.gpu_ids = args.gpu_ids
 
 if args.batch_size != -1:
     config.batch_size = args.batch_size
@@ -68,6 +80,12 @@ if args.patch_size != -1:
 
 if args.print_freq != -1:
     config.print_freq = args.print_freq
+
+if args.run_mode != 'insert':
+    config.run_mode = args.run_mode
+
+if args.clf != 'insert':
+    config.clf = args.clf
 
 # get hostname to set the correct paths
 hostname = socket.gethostname()
@@ -103,6 +121,8 @@ train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=config.
 test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=config.batch_size, shuffle=config.shuffle,
                                               num_workers=config.num_workers, pin_memory=config.pin_memory, drop_last=True)
 
+# train_dataloader, test_dataloader = create_dataloader(config)
+
 config.train_dataloader = train_dataloader
 config.test_dataloader = test_dataloader
 
@@ -125,6 +145,8 @@ if config.run_mode in ['train_encoder']:
 if config.run_mode in ['test_mult']:
     create_embeddings(config, model, tester)
     train_embeddings, test_embeddings = get_embeddings(config)
+    # train_embeddings = get_train_embeddings(config)
+    # test_embeddings = get_test_embeddings(config)
 
     similarity_embeddings(train_embeddings, config)
 

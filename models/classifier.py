@@ -23,18 +23,18 @@ import xgboost as xgb
 
 def create_embeddings(config, model, tester):
 
-    if os.path.isfile(config.dump_path+'/train_embeddings_'+config.model_name+'_'+str(config.patch_size)+'.pth') == False:
+    if os.path.isfile(config.dump_path+'/train_embeddings_'+config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth') == False:
         train_embeddings = tester.test(model, data='train')
         torch.save(train_embeddings, config.dump_path+'/train_embeddings_' +
-                   config.model_name+'_'+str(config.patch_size)+'.pth')
+                   config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth')
         print('train embeddings created')
     else:
         print('train embeddings already exist')
 
-    if os.path.isfile(config.dump_path+'/test_embeddings_'+config.model_name+'_'+str(config.patch_size)+'.pth') == False:
+    if os.path.isfile(config.dump_path+'/test_embeddings_'+config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth') == False:
         test_embeddings = tester.test(model, data='test')
         torch.save(test_embeddings, config.dump_path+'/test_embeddings_' +
-                   config.model_name+'_'+str(config.patch_size)+'.pth')
+                   config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth')
         print('test embeddings created')
     else:
         print('test embeddings already exist')
@@ -46,7 +46,7 @@ def get_embeddings(config):
         config.model_name+'_'+str(config.patch_size)+'.pth')
     test_embeddings = torch.load(
         config.dump_path+'/test_embeddings_' +
-        config.model_name+'_'+str(config.patch_size)+'.pth')
+        config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth')
 
     return train_embeddings.cpu().detach().numpy(), test_embeddings.cpu().detach().numpy()
 

@@ -4,9 +4,9 @@ from box import Box
 import rioxarray as rxr
 import earthpy as et
 
-import rasterio
-from rasterio.plot import show as sh
-from torchvision.transforms.transforms import ToPILImage
+# import rasterio
+# from rasterio.plot import show as sh
+# from torchvision.transforms.transforms import ToPILImage
 import yaml
 import torch
 
@@ -48,7 +48,7 @@ import time
 import argparse
 import math
 
-from models.classifier import load_clf
+# from models.classifier import load_clf
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config',
@@ -177,10 +177,10 @@ paths_setter(hostname, config)
 
 # arr = np.array([1, 2, 3, 4, 5, 6, 10, 10, 10])
 
-with open(config.dump_path + '/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl', 'rb') as data:
-    acc = pickle.load(data)
+# with open('/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/archive/results_data_false/accuracies' + '/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl', 'rb') as data:
+#     acc = pickle.load(data)
 
-print(acc)
+# print(acc)
 
 # a = np.array([1, 2, 3, 0, 0, 0])
 
@@ -201,3 +201,40 @@ print(acc)
 
 
 # print(arr)
+
+# def get_embeddings(config):
+#     train_embeddings = torch.load(
+#         config.dump_path+'/train_embeddings_' +
+#         config.model_name+'_'+str(config.patch_size)+'.pth')
+#     test_embeddings = torch.load(
+#         config.dump_path+'/test_embeddings_' +
+#         config.model_name+'_'+str(config.patch_size)+'.pth')
+
+#     return train_embeddings.cpu().detach().numpy(), test_embeddings.cpu().detach().numpy()
+
+
+# emb = get_embeddings(config)
+
+# # for i in range(5):
+
+# #     neg = produce_negative_samples(emb[0])
+
+# #     print(neg)
+
+# print(emb)
+
+# print(np.arange(emb[0].shape[0]))
+
+# r = np.arange(emb[0].shape[0])
+
+# np.random.shuffle(r)
+
+# print(r)
+
+
+arr = np.array([[1, 1, 1, 2, 2, 2], [3, 3, 3, 4, 4, 4], [
+               5, 5, 5, 6, 6, 6], [7, 7, 7, 8, 8, 8], [9, 9, 9, 10, 10, 10]])
+
+np.random.shuffle(arr)
+
+print(produce_negative_samples(arr))
