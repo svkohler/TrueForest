@@ -70,11 +70,11 @@ class Triplet_tester(object):
         self.config = config
         self.device = device
 
-    def test(self, data, model):
+    def test(self, model, data, location='Central_Valley'):
         if data == 'train':
             self.dataloader = self.config.train_dataloader
         elif data == 'test':
-            self.dataloader = self.config.test_dataloader
+            self.dataloader = self.config.test_dataloader[location]
         else:
             raise ValueError(
                 'please provide data type. either "train" or "test"')
@@ -92,7 +92,6 @@ class Triplet_tester(object):
         encoder.eval()
         # start testing
         embeddings = torch.tensor([], requires_grad=False).to(self.device)
-
         for i, (drone, satellite) in enumerate(tqdm(self.dataloader)):
             # send to GPU
             drone = drone.to(self.device)

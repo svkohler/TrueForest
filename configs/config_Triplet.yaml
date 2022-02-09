@@ -7,11 +7,11 @@ seed_run: 1
 seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
 
 # run mode
-run_mode: "train_encoder" # choices: all, train, train_encoder, train_classifier, test
+run_mode: "train_encoder" # choices: train_encoder, test_mult
 
 # data information
 patch_size: 224
-location: "Central_Valley"
+location: "all"
 
 # model specifications
 model_name: "Triplet"

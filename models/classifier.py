@@ -13,8 +13,8 @@ from utils import *
 import xgboost as xgb
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
-from sklearn.linear_model import SGDClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, confusion_matrix
 import xgboost as xgb
 
 # # Getting % usage of virtual_memory ( 3rd field)
@@ -23,32 +23,69 @@ import xgboost as xgb
 
 def create_embeddings(config, model, tester):
 
-    if os.path.isfile(config.dump_path+'/train_embeddings_'+config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth') == False:
+    if not os.path.exists(config.dump_path+'/embeddings'):
+        os.mkdir(config.dump_path+'/embeddings')
+
+    if os.path.isfile(config.dump_path+'/embeddings/train_embeddings_'+config.model_name+'_Central_Valley_'+str(config.patch_size)+'.pth') == False:
         train_embeddings = tester.test(model, data='train')
-        torch.save(train_embeddings, config.dump_path+'/train_embeddings_' +
-                   config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth')
+        torch.save(train_embeddings, config.dump_path+'/embeddings/train_embeddings_' +
+                   config.model_name+'_Central_Valley_'+str(config.patch_size)+'.pth')
         print('train embeddings created')
     else:
         print('train embeddings already exist')
 
-    if os.path.isfile(config.dump_path+'/test_embeddings_'+config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth') == False:
-        test_embeddings = tester.test(model, data='test')
-        torch.save(test_embeddings, config.dump_path+'/test_embeddings_' +
-                   config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth')
-        print('test embeddings created')
+    if config.location == 'all':
+        for loc in ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee']:
+            if os.path.isfile(config.dump_path+'/embeddings/test_embeddings_'+config.model_name+'_'+loc+'_'+str(config.patch_size)+'.pth') == False:
+                test_embeddings = tester.test(model, data='test', location=loc)
+                torch.save(test_embeddings, config.dump_path+'/embeddings/test_embeddings_' +
+                           config.model_name+'_'+loc+'_'+str(config.patch_size)+'.pth')
+                print(f'{loc}: test embeddings created')
+            else:
+                print(f'{loc}: test embeddings already exist')
     else:
-        print('test embeddings already exist')
+        if os.path.isfile(config.dump_path+'/embeddings/test_embeddings_'+config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth') == False:
+            test_embeddings = tester.test(
+                model, data='test', location=config.location)
+            torch.save(test_embeddings, config.dump_path+'/embeddings/test_embeddings_' +
+                       config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth')
+            print(f'{config.location}: test embeddings created')
+        else:
+            print(f'{config.location}: test embeddings already exist')
 
 
-def get_embeddings(config):
+# def get_embeddings(config):
+#     train_embeddings = torch.load(
+#         config.dump_path+'/train_embeddings_' +
+#         config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth')
+#     test_embeddings = torch.load(
+#         config.dump_path+'/test_embeddings_' +
+#         config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth')
+
+#     return train_embeddings.cpu().detach().numpy(), test_embeddings.cpu().detach().numpy()
+
+
+def get_train_embeddings(config):
     train_embeddings = torch.load(
-        config.dump_path+'/train_embeddings_' +
-        config.model_name+'_'+str(config.patch_size)+'.pth')
-    test_embeddings = torch.load(
-        config.dump_path+'/test_embeddings_' +
-        config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth')
+        config.dump_path+'/embeddings/train_embeddings_' +
+        config.model_name+'_Central_Valley_'+str(config.patch_size)+'.pth')
 
-    return train_embeddings.cpu().detach().numpy(), test_embeddings.cpu().detach().numpy()
+    return train_embeddings.cpu().detach().numpy()
+
+
+def get_test_embeddings(config):
+    test_embeddings = {}
+    if config.location == 'all':
+        for loc in ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee']:
+            test_embeddings[loc] = torch.load(
+                config.dump_path+'/embeddings/test_embeddings_' +
+                config.model_name+'_'+loc+'_'+str(config.patch_size)+'.pth').cpu().detach().numpy()
+    else:
+        test_embeddings[config.location] = torch.load(
+            config.dump_path+'/embeddings/test_embeddings_' +
+            config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth').cpu().detach().numpy()
+
+    return test_embeddings
 
 
 def test_mult(config, device, train_data, test_data, num_runs, verbose=0):
@@ -56,19 +93,20 @@ def test_mult(config, device, train_data, test_data, num_runs, verbose=0):
     function to run classification with subsequent testing multiple times
     '''
 
+    if not os.path.exists(config.dump_path+'/accuracies'):
+        os.mkdir(config.dump_path+'/accuracies')
+
     clf = get_classifier(config, verbose, device)
     print('classifier used: ', config.clf)
 
     # check if already some accuracies are stored and continue from there
-    if os.path.isfile(config.dump_path + '/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl') == True:
-        with open(config.dump_path + '/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl', 'rb') as data:
+    if os.path.isfile(config.dump_path + '/accuracies/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl') == True:
+        with open(config.dump_path + '/accuracies/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl', 'rb') as data:
             acc_coll = pickle.load(data)
-        acc_coll = clean_acc(acc_coll, num_runs)
-
     else:
-        acc_coll = np.zeros(num_runs)
+        acc_coll = AccuracyCollector(num_runs=config.num_runs)
 
-    runs_completed = sum(acc_coll != 0)
+    runs_completed = acc_coll.runs
 
     for i in range(runs_completed, num_runs):
         print('run ' + str(i+1) + ' of ' + str(num_runs))
@@ -76,33 +114,38 @@ def test_mult(config, device, train_data, test_data, num_runs, verbose=0):
         print('processing data...')
         train_features, train_labels = process_data(
             train_data, config, mode='train')
-        test_features, test_labels = process_data(
-            test_data, config, mode='test')
         print('fitting classifier...')
         clf.fit(train_features, train_labels)
         pred_labels = clf.predict(train_features)
 
         acc = accuracy_score(train_labels, pred_labels)
+        tn, fp, fn, tp = confusion_matrix(train_labels, pred_labels).ravel()
 
-        print('Training accuracy score of: ', acc)
+        print(
+            f'Training results: Accuracy: {acc} \t Pos. Precision: {tp/(tp+fp)} \t Pos. Recall: {tp/(tp+fn)} \t Neg. Precision: {tn/(tn+fn)} \t Neg. Recall: {tn/(tn+fp)}')
 
         print('predicting labels...')
-        pred_labels = clf.predict(test_features)
-        acc = accuracy_score(test_labels, pred_labels)
-        acc_coll[i] = acc
-        with open(config.dump_path + '/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl', 'wb') as fp:
+        for loc in test_data.keys():
+            test_features, test_labels = process_data(
+                test_data[loc], config, mode='test')
+
+            pred_labels = clf.predict(test_features)
+            acc = accuracy_score(test_labels, pred_labels)
+            tn, fp, fn, tp = confusion_matrix(
+                test_labels, pred_labels).ravel()
+            acc_coll.update(loc, (acc, tn, fp, fn, tp), i)
+            print(
+                f'{loc} Testing results: Accuracy: {acc} \t Pos. Precision: {tp/(tp+fp)} \t Pos. Recall: {tp/(tp+fn)} \t Neg. Precision: {tn/(tn+fn)} \t Neg. Recall: {tn/(tn+fp)}')
+
+        acc_coll.update_runs()
+        with open(config.dump_path + '/accuracies/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl', 'wb') as fp:
             pickle.dump(acc_coll, fp)
-        print('test accuracy of ' + str(round(acc*100, 2))+'%')
         print('--------------------')
         print('\n')
         del train_features, train_labels, test_features, test_labels
 
-    with open(config.dump_path + '/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl', 'wb') as fp:
-        pickle.dump(acc_coll, fp)
     print('Finished runs')
-    print('average accuracy: ', round(np.mean(acc_coll), 2), '%')
-    print('accuracies go from ', round(np.min(acc_coll), 2),
-          '% to ', round(np.max(acc_coll), 2), '%')
+    acc_coll.end_statement()
 
 
 def classify(config, data):
@@ -112,7 +155,7 @@ def classify(config, data):
 
     # process data into positive and negative samples
     print('processing data...')
-    features, labels = process_data(data, config)
+    features, labels = process_data(data, config, mode='test')
 
     # fit the binary classifier
     print('fitting classifier...')
@@ -258,8 +301,91 @@ class LogisticRegression(torch.nn.Module):
     def predict(self, X_test):
         with torch.no_grad():
             x = torch.from_numpy(X_test)
-            #labels = torch.from_numpy(y_test).type(torch.float)
+            # labels = torch.from_numpy(y_test).type(torch.float)
             outputs = torch.squeeze(self(x)).round().detach().numpy()
+            return outputs
+
+
+class MLP(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(MLP, self).__init__()
+        self.fc1 = nn.Linear(input_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, output_size)
+
+    def forward(self, x):
+        out = torch.sigmoid(self.fc2(F.relu(self.fc1(x))))
+        return out
+
+
+class MLP_classifier(nn.Module):
+    def __init__(self, device):
+        super(MLP_classifier, self).__init__()
+        self.learning_rate = 1e-3
+        self.weight_decay = 1e-4
+        self.num_epochs = 200
+        self.device = device
+
+    def forward(self, x):
+        out = torch.sigmoid(self.fc2(F.relu(self.fc1(x))))
+        return out
+
+    def fit(self, X, y):
+        self.model = MLP(X.shape[1], 100, 1)
+        self.model.to(self.device)
+
+        self.criterion = torch.nn.BCELoss()
+        self.optimizer = torch.optim.Adam(
+            self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+
+        X_train, X_val, y_train, y_val = train_test_split(
+            X, y, test_size=0.1, stratify=True)
+
+        training_samples = torch.utils.data.TensorDataset(X_train, y_train)
+        validation_samples = torch.utils.data.TensorDataset(X_val, y_val)
+        data_loader_trn = torch.utils.data.DataLoader(
+            training_samples, batch_size=200, drop_last=False, shuffle=True)
+        data_loader_val = torch.utils.data.DataLoader(
+            validation_samples, batch_size=200, drop_last=False, shuffle=True)
+
+        val_loss = None
+        counter = 0
+        for epoch in range(self.num_epochs):
+            for batch_idx, (data, target) in enumerate(data_loader_trn):
+
+                tr_x, tr_y = data.float(), target.float()
+                tr_x, tr_y = data.to(self.device), target.to(self.device)
+
+                pred = self.model(tr_x)
+                loss = self.criterion(pred, tr_y)
+
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+
+                with torch.no_grad():
+                    for batch_idx, (data, target) in enumerate(data_loader_val):
+                        val_x, val_y = data.float(), target.float()
+                        val_x, val_y = data.to(
+                            self.device), target.to(self.device)
+                        pred = self.model(val_x)
+                        current_validation_loss = self.criterion(pred, val_y)
+                        # check for early stopping
+                        if val_loss is None:
+                            val_loss = current_validation_loss
+                        elif val_loss < current_validation_loss + 0.001:
+                            counter += 1
+                            if counter >= 10:
+                                print(f'early stopping after {epoch} epochs.')
+                                break
+                        elif val_loss > current_validation_loss + 0.001:
+                            val_loss = current_validation_loss
+                            counter = 0
+
+    def predict(self, X_test):
+        with torch.no_grad():
+            x = torch.from_numpy(X_test)
+            # labels = torch.from_numpy(y_test).type(torch.float)
+            outputs = torch.squeeze(self.model(x)).round().detach().numpy()
             return outputs
 
 

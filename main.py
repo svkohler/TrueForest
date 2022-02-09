@@ -29,7 +29,7 @@ parser.add_argument('--config',
                     )
 parser.add_argument('--run_mode',
                     default='insert',
-                    choices=['train_encoder', 'test_mult'],
+                    choices=['train_encoder', 'test_mult', 'train_classifier'],
                     help='Select run mode.'
                     )
 parser.add_argument('--gpu_ids',
@@ -112,16 +112,16 @@ device = torch.device(
     f"cuda:{args.gpu_ids[0]}" if torch.cuda.is_available() else "cpu")
 
 # create training dataset
-train_dataset = TrueForestDataset(config, mode='train')
-test_dataset = TrueForestDataset(config, mode='test', transform=False)
+# train_dataset = TrueForestDataset(config, mode='train')
+# test_dataset = TrueForestDataset(config, mode='test', transform=False)
 
 # create the dataloader
-train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=config.batch_size, shuffle=config.shuffle,
-                                               num_workers=config.num_workers, pin_memory=config.pin_memory, drop_last=True)
-test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=config.batch_size, shuffle=config.shuffle,
-                                              num_workers=config.num_workers, pin_memory=config.pin_memory, drop_last=True)
+# train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=config.batch_size, shuffle=config.shuffle,
+#                                                num_workers=config.num_workers, pin_memory=config.pin_memory, drop_last=True)
+# test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=config.batch_size, shuffle=config.shuffle,
+#                                               num_workers=config.num_workers, pin_memory=config.pin_memory, drop_last=True)
 
-# train_dataloader, test_dataloader = create_dataloader(config)
+train_dataloader, test_dataloader = create_dataloader(config)
 
 config.train_dataloader = train_dataloader
 config.test_dataloader = test_dataloader
@@ -144,13 +144,20 @@ if config.run_mode in ['train_encoder']:
 # Do for multiple runs: train classifier on training data and subsequently test on test data.
 if config.run_mode in ['test_mult']:
     create_embeddings(config, model, tester)
-    train_embeddings, test_embeddings = get_embeddings(config)
-    # train_embeddings = get_train_embeddings(config)
-    # test_embeddings = get_test_embeddings(config)
+    # train_embeddings, test_embeddings = get_embeddings(config)
+    train_embeddings = get_train_embeddings(config)
+    test_embeddings = get_test_embeddings(config)
 
     similarity_embeddings(train_embeddings, config)
 
     test_mult(config, device, train_embeddings,
               test_embeddings, num_runs=config.num_runs)
+
+if config.run_mode in ['train_classifier']:
+
+    create_embeddings(config, model, tester)
+    train_embeddings = get_train_embeddings(config)
+
+    classify(config, train_embeddings)
 
 print('Successful execution.')

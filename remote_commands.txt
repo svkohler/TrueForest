@@ -1,6 +1,6 @@
 
 # copy current directory from local machine to remote machine (excluding multiple directories)
-rsync -P -a --exclude data/raw --exclude data/Triplet --exclude website_test --exclude dump --exclude dump_from_remote --exclude archive . svkohler@spaceml1.ethz.ch:/mnt/ds3lab-scratch/svkohler
+rsync -P -a --exclude data/raw --exclude data/triplet --exclude website_test --exclude dump --exclude dump_from_remote --exclude archive . svkohler@spaceml1.ethz.ch:/mnt/ds3lab-scratch/svkohler
 
 # copy dump directory from remote machine to current directory on local machine
 rsync -P -a  svkohler@spaceml1.ethz.ch:/mnt/ds3lab-scratch/svkohler/dump/ .

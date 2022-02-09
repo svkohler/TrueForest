@@ -13,6 +13,7 @@ from utils import LARC, LARS
 import numpy as np
 import math
 import torch.distributed as dist
+from PIL import Image
 
 
 # ------------------- SimSiam trainer -------------------- #
@@ -76,6 +77,7 @@ class SimSiam_trainer(object):
             # loop through batches
             for i, (satellite, drone) in enumerate(self.dataloader):
                 # send data to GPU
+
                 satellite = satellite.to(self.device)
                 drone = drone.to(self.device)
 

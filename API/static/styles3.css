@@ -1,6 +1,29 @@
 :root {
-  --main_background: rgba(11, 65, 167, 0.8);
+  /* --main_background: rgba(11, 65, 167, 0.8); */
+  --main_background: rgba(250, 240, 230, 0.9);
   --white: #faf0e6;
+}
+
+@keyframes titleSlide {
+  from {
+    margin-left: 300%;
+    width: 200%;
+  }
+
+  to {
+    margin-left: 0%;
+    width: 100%;
+  }
+}
+
+@keyframes navSlide {
+  from {
+    margin-top: -5%;
+  }
+
+  to {
+    margin-top: 0%;
+  }
 }
 
 html {
@@ -18,11 +41,17 @@ body {
   margin: 0px;
 }
 
+.list {
+  list-style: none; /* get rid of the default bullet points */
+  padding-left: 0;
+}
+
 h1 {
   color: rgb(250, 50, 88);
   font-size: 100px;
   text-align: center;
   margin-bottom: 0;
+  animation: titleSlide 0.75s;
 }
 
 h2 {
@@ -31,6 +60,7 @@ h2 {
   color: rgb(250, 50, 88);
   font-size: 40px;
   text-align: center;
+  animation: titleSlide 0.75s;
 }
 
 h4 {
@@ -45,18 +75,73 @@ h5 {
   margin-bottom: 0.5em;
 }
 
+.nav {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(5px);
+  display: flex;
+  justify-content: right;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0 1rem;
+  animation: navSlide 0.75s;
+}
+
+.nav__list {
+  width: auto;
+  display: flex;
+  font-size: 1.6rem;
+  /* make sure the navigation list is visible from the start */
+  /* overwrites the .collapsible__content from earlier. If however the collapsible__content rule would be later in the css file then invisible */
+  /* later rules seem to have precedent */
+  max-height: 100%;
+  opacity: 1;
+}
+
+.nav__item {
+  border-bottom: none;
+  margin-right: 1em;
+}
+
 .main {
   border-width: 5px;
   border-color: magenta;
   border-style: solid;
 }
 
+.title_container {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.validator-container {
+  border-width: 3px;
+  border-style: solid;
+  display: flex;
+  justify-content: center;
+  clip-path: polygon(
+    30% 0%,
+    76% 0,
+    100% 15%,
+    100% 100%,
+    70% 100%,
+    30% 100%,
+    0 86%,
+    0 0
+  );
+  background: var(--main_background);
+}
+
+#validator {
+  width: 95vw;
+}
+
 .DD_Sat {
-  background-color: var(--main_background);
   height: 50vh;
   display: flex;
   justify-content: space-between;
-  box-shadow: 0px 5px 5px 5px var(--main_background);
+  /* box-shadow: 0px 5px 5px 5px var(--main_background); */
 }
 
 .DD {
@@ -79,7 +164,7 @@ h5 {
 }
 
 .Sat {
-  background-color: mediumpurple;
+  background-color: rgb(250, 50, 88);
   background-size: auto 90%;
   border-radius: 30px;
   height: 90%;
@@ -114,8 +199,7 @@ h5 {
 
 .coordinates {
   display: block;
-  background-color: var(--main_background);
-  box-shadow: 0px -5px 5px 5px var(--main_background);
+  /* box-shadow: 0px -5px 5px 5px var(--main_background); */
   padding-left: 2em;
 }
 
@@ -158,6 +242,7 @@ h5 {
   font-size: 1rem;
   font-weight: 400;
   padding: 2rem 3rem;
+  width: 15%;
   border-radius: 30px;
   border: 0;
   cursor: pointer;
@@ -167,7 +252,13 @@ h5 {
 }
 
 .validate {
-  visibility: hidden;
+  visibility: visible;
+}
+
+button:disabled {
+  background-color: rgb(53, 53, 53);
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn:hover {
@@ -207,37 +298,6 @@ h5 {
   text-align: center;
   margin: 1rem 1rem;
   cursor: not-allowed;
-}
-
-.list {
-  list-style: none; /* get rid of the default bullet points */
-  padding-left: 0;
-}
-
-.nav {
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(5px);
-  display: flex;
-  justify-content: right;
-  align-items: center;
-  flex-wrap: wrap;
-  padding: 0 1rem;
-}
-
-.nav__list {
-  width: auto;
-  display: flex;
-  font-size: 1.6rem;
-  /* make sure the navigation list is visible from the start */
-  /* overwrites the .collapsible__content from earlier. If however the collapsible__content rule would be later in the css file then invisible */
-  /* later rules seem to have precedent */
-  max-height: 100%;
-  opacity: 1;
-}
-
-.nav__item {
-  border-bottom: none;
-  margin-right: 1em;
 }
 
 a {

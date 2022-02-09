@@ -232,9 +232,47 @@ paths_setter(hostname, config)
 # print(r)
 
 
-arr = np.array([[1, 1, 1, 2, 2, 2], [3, 3, 3, 4, 4, 4], [
-               5, 5, 5, 6, 6, 6], [7, 7, 7, 8, 8, 8], [9, 9, 9, 10, 10, 10]])
+# arr = np.array([[1, 1, 1, 2, 2, 2], [3, 3, 3, 4, 4, 4], [
+#                5, 5, 5, 6, 6, 6], [7, 7, 7, 8, 8, 8], [9, 9, 9, 10, 10, 10]])
 
-np.random.shuffle(arr)
+# np.random.shuffle(arr)
 
-print(produce_negative_samples(arr))
+# print(produce_negative_samples(arr))
+
+# drone_imgs = os.listdir(config.data_store + '/drone/Central_Valley/train/224')
+# sat_imgs = os.listdir(config.data_store +
+#                       '/satellite_rgb/Central_Valley/train/224')
+
+# drone_num = []
+# sat_num = []
+# for i in drone_imgs:
+#     drone_num.append(i[6:])
+
+# for i in sat_imgs:
+#     sat_num.append(i[10:])
+
+# for i in sat_num:
+#     if i not in drone_num:
+#         print(i)
+
+# # print(drone_num)
+# # print(sat_num)
+
+# d = {}
+
+# d[1] = (1, 2)
+# d[2] = (3, 4)
+
+# d1 = dict(zip([3, 4], list(d.values())))
+
+# print(d)
+# print(d1)
+
+acc = AccuracyCollector(num_runs=100)
+while acc.runs < 100:
+    for loc in ['a', 'b', 'c']:
+        res = np.random.rand(5)
+        acc.update(loc, tuple(res), acc.runs)
+    acc.update_runs()
+
+acc.end_statement()

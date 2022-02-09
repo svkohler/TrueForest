@@ -1,7 +1,6 @@
-var uploaded_drone_img; 
-
 const DD_Area = document.querySelector('#drop_zone')
 
+var uploads = 0;
 
 function dropHandler(ev) {
     console.log('File(s) dropped');
@@ -12,12 +11,17 @@ function dropHandler(ev) {
 
     const fileList = ev.dataTransfer.files;
 
+    var DD = document.getElementById("drop_zone")
+    removeAllChildNodes(DD)
+
     readImage(fileList[0]);
 
     fileUpload.files = ev.dataTransfer.files;
 
-    console.log(uploaded_drone_img)
-    console.log('uploaded image.')
+    submitImgForm();
+
+    uploads += 1;
+    enableValidation();
 }
 
 function dragOverHandler(ev) {
@@ -38,17 +42,106 @@ function readImage(file) {
  }
 
 function clearDD(ev){
-    uploaded_drone_img = null
     document.querySelector('#drop_zone').style.backgroundImage = null
+    document.querySelector('#sat_img').style.backgroundImage = null
     document.getElementById('form_drone_img').value = null
+    document.getElementById('bottom_left_long').value = 0
+    document.getElementById('bottom_left_lat').value = 0
+    document.getElementById('top_right_long').value = 0
+    document.getElementById('top_right_lat').value = 0
+    removeAllChildNodes(document.querySelector('#drop_zone'))
+    removeAllChildNodes(document.querySelector('#sat_img'))
+    var paragraph1 = document.createElement("p")
+    paragraph1.innerText = "Drag drone image to this Drop Zone ..."
+    var paragraph2 = document.createElement("p")
+    paragraph2.innerText = "Here corresponding satellite image will be shown..."
+    document.querySelector('#drop_zone').appendChild(paragraph1)
+    document.querySelector('#sat_img').appendChild(paragraph2)
+    uploads = 0;
+    document.getElementById("val_btn").disabled = true
+    document.getElementById("val_btn").style.visibility = "hidden"
+    document.getElementById("btn_container").removeChild(document.getElementById("result"))
+    document.getElementById("sat_btn").style.display = "block"
 }
 
 function submitImgForm(){
-    alert('test');
+    // alert('test');
     document.getElementById("form_drone_img").submit();
 }
 
 function submitCoordinatesForm(){
-    alert('test');
+    //alert('test');
+    uploads += 1;
     document.getElementById("form_coordinates").submit();
+    // add a loading circle
+    var sat = document.getElementById("sat_img")
+    removeAllChildNodes(sat)
+    var loader = document.createElement("div");
+    loader.className = "loader";
+    sat.appendChild(loader);
+    getapi(api_url);
+}
+
+const api_url = "./static/images/satellite.png"
+
+// Defining async function
+async function getapi(url) {
+    
+    // Storing response
+    const response = await fetch(url).then(function(data){
+        return data.blob();
+    }).then(function(img){
+        var dd = URL.createObjectURL(img);
+        document.querySelector("#sat_img").style.backgroundImage =`url(${dd})`;
+    });    
+    var sat = document.getElementById("sat_img")
+    sat.removeChild(sat.childNodes[0]);
+    enableValidation()
+}
+
+
+function removeAllChildNodes(parent) {
+    while (parent.firstChild) {
+        parent.removeChild(parent.firstChild);
+    }
+}
+
+function enableValidation(){
+    if(uploads ==2){
+        document.getElementById("val_btn").style.visibility = "visible"
+        document.getElementById("val_btn").disabled = false
+    }
+}
+
+async function validate(){
+    // add a loading circle
+    var btn_cont = document.getElementById("btn_container")
+    // btn_cont.removeChild(document.getElementById("val_btn"))
+    document.getElementById("val_btn").style.display = "none"
+    // btn_cont.removeChild(document.getElementById("sat_btn"))
+    document.getElementById("sat_btn").style.display = "none"
+    var loader = document.createElement("div");
+    loader.className = "loader";
+    loader.id = "val_loader"
+    btn_cont.appendChild(loader);
+    const response = await fetch('/validate')
+    const json = await response.json()
+    btn_cont.removeChild(document.getElementById("val_loader"))
+    if(json.result==0){
+        const result = document.createElement("div");
+        result.id = "result"
+        result.className = "negResult"
+        const newContent = document.createTextNode("Not from same area!");
+        result.appendChild(newContent)
+        btn_cont.appendChild(result)
+    }
+    if(json.result==1){
+        const result = document.createElement("div");
+        result.id = "result"
+        result.className = "posResult"
+        const newContent = document.createTextNode("From same area!");
+        result.appendChild(newContent)
+        btn_cont.appendChild(result)
+    }
+    console.log(json.result)
 }

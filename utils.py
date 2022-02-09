@@ -72,30 +72,54 @@ def paths_setter(hostname, config):
 
 class AccuracyCollector(object):
     def __init__(self, num_runs):
-        self.dict = {'runs_completed': 0}
+        self.runs = 0
+        self.dict = {}
         self.num_runs = num_runs
 
-    def update(self, location, acc, run):
-        if location in self.dict.keys():
-            self.dict[location][run] = acc
-        else:
-            self.dict[location] = np.zeros(self.num_runs)
-            self.dict[location][run] = acc
+    def update(self, location, conf, run):
+        if conf[0] != 1 and conf[0] >= 0.1:
+            if location in self.dict.keys():
+                self.dict[location][run] = conf
+            else:
+                self.dict[location] = {}
+                self.dict[location][run] = conf
+        elif self.runs == 0 and location not in self.dict.keys():
+            self.dict[location] = {}
 
-    def clean(self):
-        fewest_comp_runs = 100
+    def update_runs(self):
+        self.runs = np.min([len(self.dict[location])
+                           for location in self.dict.keys()])
+
+    def end_statement(self):
         for key in self.dict.keys():
-            if key != 'runs_completed':
-                acc = self.dict[key]
-                acc = np.delete(acc, np.where(acc <= 0.1))
-                acc = np.delete(acc, np.where(acc == 1))
-                if len(acc) < fewest_comp_runs:
-                    fewest_comp_runs = len(acc)
-                arr = np.zeros(self.num_runs)
-                arr[:len(acc)] = acc
-                self.dict[key] = arr
+            min = 1
+            max = 0
+            avg = []
+            for k in self.dict[key]:
+                v = self.dict[key][k]
+                if v[0] > max:
+                    max = v[0]
+                if v[0] < min:
+                    min = v[0]
+                avg.append(v[0])
+            avg = np.mean(avg)
+            print(
+                f'Summary for {key}: Avg. acuracy: {avg} \t Max. accuracy: {max} \t Min. accuracy: {min}')
+    # def clean(self):
+    #     fewest_comp_runs = 100
+    #     for key in self.dict.keys():
+    #         if key != 'runs_completed':
 
-        self.dict['runs_completed'] = fewest_comp_runs
+    #             acc = self.dict[key]
+    #             acc = np.delete(acc, np.where(acc <= 0.1))
+    #             acc = np.delete(acc, np.where(acc == 1))
+    #             if len(acc) < fewest_comp_runs:
+    #                 fewest_comp_runs = len(acc)
+    #             arr = np.zeros(self.num_runs)
+    #             arr[:len(acc)] = acc
+    #             self.dict[key] = arr
+
+    #     self.dict['runs_completed'] = fewest_comp_runs
 
 
 class AverageMeter(object):
@@ -274,12 +298,10 @@ class TrueForestDataset(Dataset):
         return satellite, drone
 
     def check_len(self):
-        try:
-            len(os.listdir(self.satellite_rgb_dir)) == len(
-                os.listdir(self.drone_dir))
+        if len(os.listdir(self.satellite_rgb_dir)) == len(os.listdir(self.drone_dir)):
             return len(os.listdir(self.satellite_rgb_dir))
-        except:
-            ValueError(
+        else:
+            raise ValueError(
                 'There is not the same number of drone and satellite images.')
 
     def get_param(self, random_nr, range):
@@ -459,9 +481,9 @@ def process_data(data, config, mode, perc_pos=0.9):
     '''
 
     if mode == 'test':
-        pos_labels = np.ones(len(data), dtype=np.int8)
-        return data, pos_labels
-        #perc_pos = 1
+        # pos_labels = np.ones(len(data), dtype=np.int8)
+        # return data, pos_labels
+        perc_pos = 1
 
     idx = np.random.choice(data.shape[0], size=int(
         data.shape[0]*perc_pos), replace=False)
