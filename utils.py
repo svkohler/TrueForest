@@ -77,7 +77,7 @@ class AccuracyCollector(object):
         self.num_runs = num_runs
 
     def update(self, location, conf, run):
-        if conf[0] != 1 and conf[0] >= 0.1:
+        if conf[0] != 0.5 and conf[0] >= 0.1:
             if location in self.dict.keys():
                 self.dict[location][run] = conf
             else:

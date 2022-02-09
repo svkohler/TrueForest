@@ -268,11 +268,16 @@ paths_setter(hostname, config)
 # print(d)
 # print(d1)
 
-acc = AccuracyCollector(num_runs=100)
-while acc.runs < 100:
-    for loc in ['a', 'b', 'c']:
-        res = np.random.rand(5)
-        acc.update(loc, tuple(res), acc.runs)
-    acc.update_runs()
+# acc = AccuracyCollector(num_runs=100)
+# while acc.runs < 100:
+#     for loc in ['a', 'b', 'c']:
+#         res = np.random.rand(5)
+#         acc.update(loc, tuple(res), acc.runs)
+#     acc.update_runs()
 
-acc.end_statement()
+# acc.end_statement()
+
+res = torch.load(
+    '/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump_from_remote/SimSiam_best_epoch_224.pth', map_location='cuda:0')
+
+print(res['epoch'])

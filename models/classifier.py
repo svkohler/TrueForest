@@ -198,8 +198,7 @@ def get_classifier(config, verbose=0, device=None):
             oob_score=True, verbose=verbose, n_jobs=-1)
 
     if config.clf == 'MLP':
-        clf = MLPClassifier(
-            max_iter=200, early_stopping=True, verbose=verbose)
+        clf = MLP_classifier(device=device)
 
     return clf
 
@@ -333,15 +332,17 @@ class MLP_classifier(nn.Module):
         self.model = MLP(X.shape[1], 100, 1)
         self.model.to(self.device)
 
-        self.criterion = torch.nn.BCELoss()
+        self.criterion = torch.nn.BCELoss().to(self.device)
         self.optimizer = torch.optim.Adam(
             self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
 
         X_train, X_val, y_train, y_val = train_test_split(
-            X, y, test_size=0.1, stratify=True)
+            X, y, test_size=0.1)
 
-        training_samples = torch.utils.data.TensorDataset(X_train, y_train)
-        validation_samples = torch.utils.data.TensorDataset(X_val, y_val)
+        training_samples = torch.utils.data.TensorDataset(
+            torch.from_numpy(X_train), torch.from_numpy(y_train))
+        validation_samples = torch.utils.data.TensorDataset(
+            torch.from_numpy(X_val), torch.from_numpy(y_val))
         data_loader_trn = torch.utils.data.DataLoader(
             training_samples, batch_size=200, drop_last=False, shuffle=True)
         data_loader_val = torch.utils.data.DataLoader(
@@ -352,40 +353,43 @@ class MLP_classifier(nn.Module):
         for epoch in range(self.num_epochs):
             for batch_idx, (data, target) in enumerate(data_loader_trn):
 
-                tr_x, tr_y = data.float(), target.float()
                 tr_x, tr_y = data.to(self.device), target.to(self.device)
 
                 pred = self.model(tr_x)
-                loss = self.criterion(pred, tr_y)
+                loss = self.criterion(torch.squeeze(pred), tr_y.float())
 
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
 
-                with torch.no_grad():
-                    for batch_idx, (data, target) in enumerate(data_loader_val):
-                        val_x, val_y = data.float(), target.float()
-                        val_x, val_y = data.to(
-                            self.device), target.to(self.device)
-                        pred = self.model(val_x)
-                        current_validation_loss = self.criterion(pred, val_y)
-                        # check for early stopping
-                        if val_loss is None:
-                            val_loss = current_validation_loss
-                        elif val_loss < current_validation_loss + 0.001:
-                            counter += 1
-                            if counter >= 10:
-                                print(f'early stopping after {epoch} epochs.')
-                                break
-                        elif val_loss > current_validation_loss + 0.001:
-                            val_loss = current_validation_loss
-                            counter = 0
+            with torch.no_grad():
+                current_validation_loss = 0
+                for batch_idx, (data, target) in enumerate(data_loader_val):
+                    val_x, val_y = data.float(), target.float()
+                    val_x, val_y = data.to(
+                        self.device), target.to(self.device)
+                    pred = self.model(val_x)
+                    current_validation_loss += self.criterion(
+                        torch.squeeze(pred), val_y.float())
+                # check for early stopping
+                if val_loss is None:
+                    val_loss = current_validation_loss
+                elif val_loss < current_validation_loss + 0.0001:
+                    counter += 1
+                    if counter >= 10:
+                        print(f'early stopping after {epoch} epochs.')
+                        break
+                elif val_loss > current_validation_loss + 0.0001:
+                    val_loss = current_validation_loss
+                    counter = 0
 
     def predict(self, X_test):
         with torch.no_grad():
             x = torch.from_numpy(X_test)
+            x = x.to(self.device)
             # labels = torch.from_numpy(y_test).type(torch.float)
-            outputs = torch.squeeze(self.model(x)).round().detach().numpy()
+            outputs = torch.squeeze(self.model(
+                x)).cpu().round().detach().numpy()
             return outputs
 
 

@@ -103,7 +103,7 @@ class SimSiam_trainer(object):
                 batch_time.update(time.time() - end)
                 end = time.time()
 
-                if i % self.config.print_freq == 0:
+                if i % self.config.print_freq == 0 or i == len(self.dataloader):
                     progress.display(i)
 
             # check if current epoch is best epoch and save model state_dict
@@ -208,7 +208,7 @@ class SimCLR_trainer(object):
                 batch_time.update(time.time() - end)
                 end = time.time()
 
-                if i % self.config.print_freq == 0:
+                if i % self.config.print_freq == 0 or i == len(self.dataloader):
                     progress.display(i)
 
             # warmup for the first 10 epochs
@@ -306,7 +306,7 @@ class MoCo_trainer(object):
                 batch_time.update(time.time() - end)
                 end = time.time()
 
-                if i % self.config.print_freq == 0:
+                if i % self.config.print_freq == 0 or i == len(self.dataloader):
                     progress.display(i)
 
             # check if current epoch is best epoch and save model state_dict
@@ -419,7 +419,7 @@ class BarlowTwins_trainer(object):
                 batch_time.update(time.time() - end)
                 end = time.time()
 
-                if i % self.config.print_freq == 0:
+                if i % self.config.print_freq == 0 or i == len(self.dataloader):
                     progress.display(i)
 
             # check if current epoch is best epoch and save model state_dict
@@ -522,7 +522,7 @@ class BYOL_trainer(object):
                 batch_time.update(time.time() - end)
                 end = time.time()
 
-                if i % self.config.print_freq == 0:
+                if i % self.config.print_freq == 0 or i == len(self.dataloader):
                     progress.display(i)
 
             # check if current epoch is best epoch and save model state_dict
@@ -717,7 +717,7 @@ class DINO_trainer(object):
                 batch_time.update(time.time() - end)
                 end = time.time()
 
-                if i % self.config.print_freq == 0:
+                if i % self.config.print_freq == 0 or i == len(self.dataloader):
                     progress.display(i)
 
             # check if current epoch is best epoch and save model state_dict
@@ -886,7 +886,7 @@ class SwAV_trainer(object):
                 batch_time.update(time.time() - end)
                 end = time.time()
 
-                if i % self.config.print_freq == 0:
+                if i % self.config.print_freq == 0 or i == len(self.dataloader):
                     progress.display(i)
 
             if queue is not None:
