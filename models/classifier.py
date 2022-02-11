@@ -17,6 +17,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix
 import xgboost as xgb
 
+
 # # Getting % usage of virtual_memory ( 3rd field)
 # print('RAM memory % used:', psutil.virtual_memory()[2])
 
@@ -35,7 +36,7 @@ def create_embeddings(config, model, tester):
         print('train embeddings already exist')
 
     if config.location == 'all':
-        for loc in ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee']:
+        for loc in ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee', 'Phoenix']:
             if os.path.isfile(config.dump_path+'/embeddings/test_embeddings_'+config.model_name+'_'+loc+'_'+str(config.patch_size)+'.pth') == False:
                 test_embeddings = tester.test(model, data='test', location=loc)
                 torch.save(test_embeddings, config.dump_path+'/embeddings/test_embeddings_' +
@@ -76,7 +77,7 @@ def get_train_embeddings(config):
 def get_test_embeddings(config):
     test_embeddings = {}
     if config.location == 'all':
-        for loc in ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee']:
+        for loc in ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee', 'Phoenix']:
             test_embeddings[loc] = torch.load(
                 config.dump_path+'/embeddings/test_embeddings_' +
                 config.model_name+'_'+loc+'_'+str(config.patch_size)+'.pth').cpu().detach().numpy()
@@ -122,7 +123,7 @@ def test_mult(config, device, train_data, test_data, num_runs, verbose=0):
         tn, fp, fn, tp = confusion_matrix(train_labels, pred_labels).ravel()
 
         print(
-            f'Training results: Accuracy: {acc} \t Pos. Precision: {tp/(tp+fp)} \t Pos. Recall: {tp/(tp+fn)} \t Neg. Precision: {tn/(tn+fn)} \t Neg. Recall: {tn/(tn+fp)}')
+            f'Training results: Accuracy: {acc:.4f}% \t Pos. Precision: {tp/(tp+fp):.4f}% \t Pos. Recall: {tp/(tp+fn):.4f}% \t Neg. Precision: {tn/(tn+fn):.4f}% \t Neg. Recall: {tn/(tn+fp):.4f}%')
 
         print('predicting labels...')
         for loc in test_data.keys():
@@ -135,7 +136,7 @@ def test_mult(config, device, train_data, test_data, num_runs, verbose=0):
                 test_labels, pred_labels).ravel()
             acc_coll.update(loc, (acc, tn, fp, fn, tp), i)
             print(
-                f'{loc} Testing results: Accuracy: {acc} \t Pos. Precision: {tp/(tp+fp)} \t Pos. Recall: {tp/(tp+fn)} \t Neg. Precision: {tn/(tn+fn)} \t Neg. Recall: {tn/(tn+fp)}')
+                f'{loc} Testing results: Accuracy: {acc:.4f}% \t Pos. Precision: {tp/(tp+fp):.4f}% \t Pos. Recall: {tp/(tp+fn):.4f}% \t Neg. Precision: {tn/(tn+fn):.4f}% \t Neg. Recall: {tn/(tn+fp):.4f}%')
 
         acc_coll.update_runs()
         with open(config.dump_path + '/accuracies/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl', 'wb') as fp:
@@ -191,7 +192,7 @@ def get_classifier(config, verbose=0, device=None):
         clf = LogisticRegression(verbose=verbose)
 
     if config.clf == 'xgboost':
-        clf = XGBoost()
+        clf = XGBoost(config)
 
     if config.clf == 'random_forest':
         clf = RandomForestClassifier(
@@ -398,15 +399,16 @@ class XGBoost():
     boosting classifier
     '''
 
-    def __init__(self):
+    def __init__(self, config):
         super(XGBoost, self).__init__()
+        self.gpu_id = config.gpu_ids[0]
 
     def fit(self, X, y):
         param = {'objective': 'binary:logistic',
                  'tree_method': 'gpu_hist',
-                 'gpu_id': 0,
+                 'gpu_id': self.gpu_id,
                  'eval_metric': 'logloss'}
-        idx = np.random.randint(X.shape[0], size=75000)
+        idx = np.random.choice(X.shape[0], X.shape[0]-1)
         dtrain = xgb.DMatrix(X[idx, :], label=y[idx])
         self.bst = xgb.train(param, dtrain)
 

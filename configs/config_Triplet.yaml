@@ -74,4 +74,4 @@ transforms:
 
 # binary classifier
 classify: True
-clf: "random_forest" # choices random_forest, linear, xgboost, MLP
+clf: "MLP" # choices random_forest, linear, xgboost, MLP

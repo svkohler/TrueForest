@@ -39,7 +39,7 @@ parser.add_argument('--location',
                     type=str,
                     help='Location of images',
                     choices=['Central_Valley', 'Florida',
-                             'Tennessee', 'Louisiana']
+                             'Tennessee', 'Louisiana', 'Phoenix']
                     )
 args = parser.parse_args()
 

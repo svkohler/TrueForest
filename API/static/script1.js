@@ -59,7 +59,8 @@ function clearDD(ev){
     document.querySelector('#sat_img').appendChild(paragraph2)
     uploads = 0;
     document.getElementById("val_btn").disabled = true
-    document.getElementById("val_btn").style.visibility = "hidden"
+    document.getElementById("val_btn").style.visibility = "visible"
+    document.getElementById("val_btn").style.display = "block"
     document.getElementById("btn_container").removeChild(document.getElementById("result"))
     document.getElementById("sat_btn").style.display = "block"
 }
@@ -121,7 +122,7 @@ async function validate(){
     // btn_cont.removeChild(document.getElementById("sat_btn"))
     document.getElementById("sat_btn").style.display = "none"
     var loader = document.createElement("div");
-    loader.className = "loader";
+    loader.className = "loader-small";
     loader.id = "val_loader"
     btn_cont.appendChild(loader);
     const response = await fetch('/validate')

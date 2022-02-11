@@ -14,7 +14,7 @@ patch_size: 224
 location: "all" # choices ['all', 'Central_Valley', 'Florida', 'Louisiana', 'Tennessee']
 
 # model specifications
-model_name: "Triplet"
+model_name: "None"
 base_architecture: "resnet50" # choices: resnet50, resnet101, wide_resnet50_2, wide_resnet101_2
 num_features: 256 # size of feature vector which is used for loss function
 num_hidden: 2048 # size of hidden layer in projection head

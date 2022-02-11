@@ -9,11 +9,11 @@ class Tester(object):
         self.config = config
         self.device = device
 
-    def test(self, model, data, verbose=True):
+    def test(self, model, data, location='Central_Valley'):
         if data == 'train':
             self.dataloader = self.config.train_dataloader
         elif data == 'test':
-            self.dataloader = self.config.test_dataloader
+            self.dataloader = self.config.test_dataloader[location]
         else:
             raise ValueError(
                 'please provide data type. either "train" or "test"')
@@ -22,8 +22,7 @@ class Tester(object):
             checkpoint = torch.load(
                 self.config.dump_path + '/'+self.config.model_name+'_best_epoch_' + str(self.config.patch_size)+'.pth')
             model.load_state_dict(checkpoint['model_state_dict'])
-            if verbose:
-                print('Successfully loaded model.')
+            print('Successfully loaded model.')
         except ValueError:
             print('there seems to be no correspondig model state saved in ',
                   self.config.dump_path)
@@ -45,8 +44,7 @@ class Tester(object):
         # start testing
         embeddings = torch.tensor([], requires_grad=False).to(self.device)
 
-        if verbose:
-            print('Start creating embeddings...')
+        print('Start creating embeddings...')
         for i, (drone, satellite) in enumerate(tqdm(self.dataloader)):
             # send to GPU
             drone = drone.to(self.device)
@@ -60,8 +58,7 @@ class Tester(object):
             concat = torch.squeeze(torch.cat((drone_emb, sat_emb), dim=1))
             # append embeddings
             embeddings = torch.cat((embeddings, concat), dim=0)
-        if verbose:
-            print('Successfully created embeddings.')
+        print('Successfully created embeddings.')
         return embeddings
 
 

@@ -177,10 +177,15 @@ paths_setter(hostname, config)
 
 # arr = np.array([1, 2, 3, 4, 5, 6, 10, 10, 10])
 
-# with open('/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/archive/results_data_false/accuracies' + '/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl', 'rb') as data:
-#     acc = pickle.load(data)
+with open(config.dump_path + '/accuracies/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl', 'rb') as data:
+    acc = pickle.load(data)
 
-# print(acc)
+print(acc.dict)
+# print(len(acc.dict['Central_Valley']))
+
+# d = dict((i, value)
+#          for (i, (key, value)) in enumerate(acc.dict['Central_Valley'].items()))
+# print(d)
 
 # a = np.array([1, 2, 3, 0, 0, 0])
 
@@ -277,7 +282,7 @@ paths_setter(hostname, config)
 
 # acc.end_statement()
 
-res = torch.load(
-    '/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump_from_remote/SimSiam_best_epoch_224.pth', map_location='cuda:0')
+# res = torch.load(
+#     '/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump_from_remote/SimSiam_best_epoch_224.pth', map_location='cuda:0')
 
-print(res['epoch'])
+# print(res['epoch'])

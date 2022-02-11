@@ -89,6 +89,9 @@ class AccuracyCollector(object):
     def update_runs(self):
         self.runs = np.min([len(self.dict[location])
                            for location in self.dict.keys()])
+        for loc in self.dict.keys():
+            self.dict[loc] = dict((i, value) for (
+                i, (key, value)) in enumerate(self.dict[loc].items()))
 
     def end_statement(self):
         for key in self.dict.keys():
@@ -316,7 +319,7 @@ def create_datasets(config):
     if config.location == 'all':
         config.location = 'Central_Valley'
         train_dataset = TrueForestDataset(config, mode='train')
-        for loc in ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee']:
+        for loc in ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee', 'Phoenix']:
             config.location = loc
             test_dataset[loc] = TrueForestDataset(
                 config, mode='test', transform=False)
