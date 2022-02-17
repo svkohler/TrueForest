@@ -4,6 +4,13 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
+'''
+Code adopted with slight changes.
+Source: https://github.com/facebookresearch/simsiam
+Date: February 17th, 2022
+
+'''
+
 import torch
 import torch.nn as nn
 
@@ -22,8 +29,8 @@ class SimSiam(nn.Module):
 
         # create the encoder
         # num_classes is the output fc dimension, zero-initialize last BNs
-        self.encoder = base_encoder(
-            num_classes=config.num_features, zero_init_residual=True)
+        self.encoder = base_encoder(pretrained=config.pretrained,
+                                    zero_init_residual=True)
 
         # build a 3-layer projector
         prev_dim = self.encoder.fc.weight.shape[1]
@@ -35,7 +42,8 @@ class SimSiam(nn.Module):
                                             prev_dim, prev_dim, bias=False),
                                         nn.BatchNorm1d(prev_dim),
                                         nn.ReLU(inplace=True),  # second layer
-                                        self.encoder.fc,
+                                        nn.Linear(
+                                            in_features=prev_dim, out_features=config.num_features, bias=True),
                                         nn.BatchNorm1d(config.num_projection, affine=False))  # output layer
         # hack: not use bias as it is followed by BN
         self.encoder.fc[6].bias.requires_grad = False

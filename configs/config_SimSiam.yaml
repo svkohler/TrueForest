@@ -2,6 +2,8 @@
 data_store: "to-be-set"
 dump_path: "to-be-set" # path were intermediate files are dumped
 
+experiment_name: "pretrained"
+
 # Set seed for reproducability
 seed_run: 1
 seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
@@ -16,6 +18,7 @@ location: "all" # choices ['all', 'Central_Valley', 'Florida', 'Louisiana', 'Ten
 # model specifications
 model_name: "SimSiam"
 base_architecture: "resnet50" # choices: resnet50, resnet101, wide_resnet50_2, wide_resnet101_2
+pretrained: True
 num_features: 2048 # size of feature vector which is used for loss function
 num_hidden: 512 # size of hidden layer in projection head
 num_projection: 2048 # size after projection
@@ -30,7 +33,6 @@ fp16_precision: True
 
 # model specific training parameters
 temperature: 0.07
-normalize: True
 epsilon: 0.005
 queue_length: 2048
 epoch_queue_starts: 5
@@ -68,7 +70,7 @@ transforms:
   saturation_prob: 0.3
   gaussian_blur: True
   gaussian_blur_prob: 0.2
-  normalize: False
+normalize: True
 
 # --------------------------
 

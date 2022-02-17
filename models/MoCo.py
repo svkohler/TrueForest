@@ -1,3 +1,11 @@
+'''
+Code adopted with slight changes.
+Source: https://github.com/facebookresearch/moco
+Date: February 17th, 2022
+
+'''
+
+
 import torch
 from torch import nn
 
@@ -24,8 +32,8 @@ class MoCo(nn.Module):
 
         # create the encoders
         # num_classes is the output fc dimension
-        self.encoder_q = base_encoder()
-        self.encoder_k = base_encoder()
+        self.encoder_q = base_encoder(pretrained=config.pretrained)
+        self.encoder_k = base_encoder(pretrained=config.pretrained)
 
         self._build_projector_and_predictor_mlps_ResNet()
 

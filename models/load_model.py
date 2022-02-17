@@ -1,22 +1,22 @@
 from models.SimSiam import SimSiam
 from models.SimCLR import ResNetSimCLR
-from models.SwAV import ResNetSwAV, Bottleneck
 from models.BYOL import BYOL
 from models.BarlowTwins import BarlowTwins
 from models.MoCo import MoCo
-from models.DINO import DINO
 from models.triplet import Triplet
 
 import torchvision.models as models
-from models import ViT_DINO
 
-from models.model_trainer import SimCLR_trainer, SimSiam_trainer, BYOL_trainer, SwAV_trainer, BarlowTwins_trainer, MoCo_trainer, DINO_trainer, Triplet_trainer
+from models.model_trainer import SimCLR_trainer, SimSiam_trainer, BYOL_trainer, BarlowTwins_trainer, MoCo_trainer, Triplet_trainer
 from models.model_tester import Tester, Triplet_tester
 
 
 def load_model(config, device):
+    '''
+    look up the right model, trainer, tester and return it
 
-    # check for the right model and return it
+    '''
+
     if config.model_name == 'Triplet':
         base_encoder = models.__dict__[config.base_architecture]
         model = Triplet(base_encoder=base_encoder, config=config)
@@ -65,29 +65,6 @@ def load_model(config, device):
         base_encoder = models.__dict__[config.base_architecture]
         model = MoCo(base_encoder=base_encoder, config=config)
         trainer = MoCo_trainer(config, device)
-        tester = Tester(config, device)
-
-        return model, trainer, tester
-
-    if config.model_name == 'DINO':
-        base_encoder = ViT_DINO.__dict__[config.base_architecture]
-        model = DINO(base_encoder=base_encoder, config=config)
-        trainer = DINO_trainer(config, device)
-        tester = Tester(config, device)
-
-        return model, trainer, tester
-
-    if config.model_name == 'SwAV':
-        if config.base_architecture == 'resnet50':
-            layers = [3, 4, 6, 3]
-        elif config.base_architecture == 'resnet101':
-            layers = [3, 4, 23, 3]
-
-        model = ResNetSwAV(block=Bottleneck, layers=layers,
-                           normalize=config.normalize, output_dim=config.num_projection,
-                           hidden_mlp=config.num_hidden, nmb_prototypes=config.num_prototypes)
-
-        trainer = SwAV_trainer(config, device)
         tester = Tester(config, device)
 
         return model, trainer, tester

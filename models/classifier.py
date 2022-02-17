@@ -16,18 +16,20 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix
 import xgboost as xgb
-
-
-# # Getting % usage of virtual_memory ( 3rd field)
-# print('RAM memory % used:', psutil.virtual_memory()[2])
+from torch import nn
 
 
 def create_embeddings(config, model, tester):
+    '''
+    function to create train/test embeddings for different locations from pretrained models
+
+    '''
 
     if not os.path.exists(config.dump_path+'/embeddings'):
         os.mkdir(config.dump_path+'/embeddings')
 
     if os.path.isfile(config.dump_path+'/embeddings/train_embeddings_'+config.model_name+'_Central_Valley_'+str(config.patch_size)+'.pth') == False:
+        # call tester to create embeddings
         train_embeddings = tester.test(model, data='train')
         torch.save(train_embeddings, config.dump_path+'/embeddings/train_embeddings_' +
                    config.model_name+'_Central_Valley_'+str(config.patch_size)+'.pth')
@@ -36,8 +38,10 @@ def create_embeddings(config, model, tester):
         print('train embeddings already exist')
 
     if config.location == 'all':
+        # loop through different locations
         for loc in ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee', 'Phoenix']:
             if os.path.isfile(config.dump_path+'/embeddings/test_embeddings_'+config.model_name+'_'+loc+'_'+str(config.patch_size)+'.pth') == False:
+                # call tester to create embeddings
                 test_embeddings = tester.test(model, data='test', location=loc)
                 torch.save(test_embeddings, config.dump_path+'/embeddings/test_embeddings_' +
                            config.model_name+'_'+loc+'_'+str(config.patch_size)+'.pth')
@@ -55,43 +59,43 @@ def create_embeddings(config, model, tester):
             print(f'{config.location}: test embeddings already exist')
 
 
-# def get_embeddings(config):
-#     train_embeddings = torch.load(
-#         config.dump_path+'/train_embeddings_' +
-#         config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth')
-#     test_embeddings = torch.load(
-#         config.dump_path+'/test_embeddings_' +
-#         config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth')
-
-#     return train_embeddings.cpu().detach().numpy(), test_embeddings.cpu().detach().numpy()
-
-
 def get_train_embeddings(config):
+    '''
+    function to get specifically train embeddings and load them to CPU and convert to numpy array
+
+    '''
     train_embeddings = torch.load(
         config.dump_path+'/embeddings/train_embeddings_' +
-        config.model_name+'_Central_Valley_'+str(config.patch_size)+'.pth')
+        config.model_name+'_Central_Valley_'+str(config.patch_size)+'.pth', map_location=f'cuda:{config.gpu_ids[0]}')
 
     return train_embeddings.cpu().detach().numpy()
 
 
 def get_test_embeddings(config):
+    '''
+    function to get specifically test embeddings and load them to CPU and convert to numpy array.
+    test embeddings are organised in a dictionary.
+
+    '''
     test_embeddings = {}
     if config.location == 'all':
         for loc in ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee', 'Phoenix']:
             test_embeddings[loc] = torch.load(
                 config.dump_path+'/embeddings/test_embeddings_' +
-                config.model_name+'_'+loc+'_'+str(config.patch_size)+'.pth').cpu().detach().numpy()
+                config.model_name+'_'+loc+'_'+str(config.patch_size)+'.pth', map_location=f'cuda:{config.gpu_ids[0]}').cpu().detach().numpy()
     else:
         test_embeddings[config.location] = torch.load(
             config.dump_path+'/embeddings/test_embeddings_' +
-            config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth').cpu().detach().numpy()
+            config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth', map_location=f'cuda:{config.gpu_ids[0]}').cpu().detach().numpy()
 
     return test_embeddings
 
 
 def test_mult(config, device, train_data, test_data, num_runs, verbose=0):
     '''
-    function to run classification with subsequent testing multiple times
+    main testing function.
+    run training/testing loop of different classifiers multiple times and collect accuracies on different locations.
+
     '''
 
     if not os.path.exists(config.dump_path+'/accuracies'):
@@ -107,24 +111,35 @@ def test_mult(config, device, train_data, test_data, num_runs, verbose=0):
     else:
         acc_coll = AccuracyCollector(num_runs=config.num_runs)
 
+    # flag from where to continue
     runs_completed = acc_coll.runs
 
     for i in range(runs_completed, num_runs):
-        print('run ' + str(i+1) + ' of ' + str(num_runs))
-        print('RAM used: ', psutil.virtual_memory()[2])
-        print('processing data...')
-        train_features, train_labels = process_data(
-            train_data, config, mode='train')
-        print('fitting classifier...')
-        clf.fit(train_features, train_labels)
-        pred_labels = clf.predict(train_features)
+        # training
 
-        acc = accuracy_score(train_labels, pred_labels)
-        tn, fp, fn, tp = confusion_matrix(train_labels, pred_labels).ravel()
+        # flag to check if classifier is converged
+        converged = False
+        while not converged:
+            print('run ' + str(i+1) + ' of ' + str(num_runs))
+            print('RAM used: ', psutil.virtual_memory()[2])
+            print('processing data...')
+            train_features, train_labels = process_data(
+                train_data, config, mode='train')
+            print('fitting classifier...')
+            clf.fit(train_features, train_labels)
+            pred_labels = clf.predict(train_features)
+
+            acc = accuracy_score(train_labels, pred_labels)
+            # check if classifier has converged
+            if acc != 0.5:
+                converged = True
+            tn, fp, fn, tp = confusion_matrix(
+                train_labels, pred_labels).ravel()
 
         print(
             f'Training results: Accuracy: {acc:.4f}% \t Pos. Precision: {tp/(tp+fp):.4f}% \t Pos. Recall: {tp/(tp+fn):.4f}% \t Neg. Precision: {tn/(tn+fn):.4f}% \t Neg. Recall: {tn/(tn+fp):.4f}%')
 
+        # testing
         print('predicting labels...')
         for loc in test_data.keys():
             test_features, test_labels = process_data(
@@ -132,6 +147,7 @@ def test_mult(config, device, train_data, test_data, num_runs, verbose=0):
 
             pred_labels = clf.predict(test_features)
             acc = accuracy_score(test_labels, pred_labels)
+            # save classification behaviour for later analysis
             tn, fp, fn, tp = confusion_matrix(
                 test_labels, pred_labels).ravel()
             acc_coll.update(loc, (acc, tn, fp, fn, tp), i)
@@ -149,10 +165,14 @@ def test_mult(config, device, train_data, test_data, num_runs, verbose=0):
     acc_coll.end_statement()
 
 
-def classify(config, data):
+def classify(config, data, device):
+    '''
+    function to train and save a single classifer. Used for validation application.
+
+    '''
 
     # get the classifier
-    clf = get_classifier(config, verbose=3)
+    clf = get_classifier(config, verbose=0, device=device)
 
     # process data into positive and negative samples
     print('processing data...')
@@ -163,6 +183,7 @@ def classify(config, data):
     clf.fit(features, labels)
 
     pred_labels = clf.predict(features)
+    print(pred_labels)
 
     acc = accuracy_score(labels, pred_labels)
 
@@ -172,21 +193,11 @@ def classify(config, data):
     save_clf(clf, config)
 
 
-def predict(config, data):
-
-    clf = load_clf(config)
-
-    # process data
-    features, labels = process_data(data, config)
-
-    pred_labels = clf.predict(features)
-
-    acc = accuracy_score(labels, pred_labels)
-
-    print('Accuracy score of: ', acc)
-
-
 def get_classifier(config, verbose=0, device=None):
+    '''
+    helper function to retrieve classifier
+
+    '''
 
     if config.clf == 'linear':
         clf = LogisticRegression(verbose=verbose)
@@ -205,6 +216,10 @@ def get_classifier(config, verbose=0, device=None):
 
 
 def save_clf(classifier, config):
+    '''
+    helper function to save classifier
+
+    '''
 
     if config.clf == 'linear':
         torch.save(classifier.state_dict(), config.dump_path +
@@ -215,35 +230,21 @@ def save_clf(classifier, config):
             config.dump_path + '/' + config.model_name + '_xgboost_classifier.json')
 
     if config.clf == 'random_forest':
-        joblib.dump(classifier, config.dump_path + '/' +
+        joblib.dump(classifier, config.dump_path + '/clf/' +
                     config.model_name + '_rf_classifier.joblib')
 
     if config.clf == 'MLP':
-        joblib.dump(classifier, config.dump_path + '/' +
-                    config.model_name + '_MLP_classifier.joblib')
+        classifier.save_model(config)
 
 
-def load_clf(config):
+'''
+Below are implementations of the different classifier.
+Except for Random Forest. Here the standard sklearn library was used. 
 
-    if config.clf == 'linear':
-        clf = LogisticRegression()
-        clf.load_state_dict(torch.load(config.dump_path +
-                            '/' + config.model_name + '_linear_classifier.pth'))
+'''
 
-    if config.clf == 'xgboost':
-        clf = xgb.XGBClassifier()
-        clf.load_model(
-            config.dump_path + '/' + config.model_name + '_xgboost_classifier.json')
 
-    if config.clf == 'random_forest':
-        clf = joblib.load(config.dump_path + '/' +
-                          config.model_name + '_rf_classifier.joblib')
-
-    if config.clf == 'MLP':
-        clf = joblib.load(config.dump_path + '/' +
-                          config.model_name + '_MLP_classifier.joblib')
-
-    return clf
+# -------------------- Logistic regression -------------------- #
 
 
 class LogisticRegression(torch.nn.Module):
@@ -317,6 +318,9 @@ class MLP(nn.Module):
         return out
 
 
+# -------------------- Multi Layer Perceptron -------------------- #
+
+
 class MLP_classifier(nn.Module):
     def __init__(self, device):
         super(MLP_classifier, self).__init__()
@@ -335,7 +339,7 @@ class MLP_classifier(nn.Module):
 
         self.criterion = torch.nn.BCELoss().to(self.device)
         self.optimizer = torch.optim.Adam(
-            self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+            self.model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
 
         X_train, X_val, y_train, y_val = train_test_split(
             X, y, test_size=0.1)
@@ -363,26 +367,27 @@ class MLP_classifier(nn.Module):
                 loss.backward()
                 self.optimizer.step()
 
-            with torch.no_grad():
-                current_validation_loss = 0
-                for batch_idx, (data, target) in enumerate(data_loader_val):
-                    val_x, val_y = data.float(), target.float()
-                    val_x, val_y = data.to(
-                        self.device), target.to(self.device)
-                    pred = self.model(val_x)
-                    current_validation_loss += self.criterion(
-                        torch.squeeze(pred), val_y.float())
-                # check for early stopping
-                if val_loss is None:
-                    val_loss = current_validation_loss
-                elif val_loss < current_validation_loss + 0.0001:
-                    counter += 1
-                    if counter >= 10:
-                        print(f'early stopping after {epoch} epochs.')
-                        break
-                elif val_loss > current_validation_loss + 0.0001:
-                    val_loss = current_validation_loss
-                    counter = 0
+            if epoch > 50:
+                with torch.no_grad():
+                    current_validation_loss = 0
+                    for batch_idx, (data, target) in enumerate(data_loader_val):
+                        val_x, val_y = data.float(), target.float()
+                        val_x, val_y = data.to(
+                            self.device), target.to(self.device)
+                        pred = self.model(val_x)
+                        current_validation_loss += self.criterion(
+                            torch.squeeze(pred), val_y.float())
+                    # check for early stopping
+                    if val_loss is None:
+                        val_loss = current_validation_loss
+                    elif val_loss < current_validation_loss + 0.0001:
+                        counter += 1
+                        if counter >= 10:
+                            print(f'early stopping after {epoch} epochs.')
+                            break
+                    elif val_loss > current_validation_loss + 0.0001:
+                        val_loss = current_validation_loss
+                        counter = 0
 
     def predict(self, X_test):
         with torch.no_grad():
@@ -390,8 +395,15 @@ class MLP_classifier(nn.Module):
             x = x.to(self.device)
             # labels = torch.from_numpy(y_test).type(torch.float)
             outputs = torch.squeeze(self.model(
-                x)).cpu().round().detach().numpy()
-            return outputs
+                x)).cpu().detach().numpy()
+            return outputs.round()
+
+    def save_model(self, config):
+        torch.save(self.model.state_dict(), config.dump_path +
+                   '/clf/'+'_'+config.model_name+str(config.patch_size)+'.pth')
+
+
+# -------------------- Extreme Gradient Boosting -------------------- #
 
 
 class XGBoost():

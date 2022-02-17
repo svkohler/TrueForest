@@ -3,7 +3,6 @@ import sys
 import os
 import socket
 
-
 # imports for config
 from box import Box
 import argparse
@@ -17,6 +16,7 @@ from utils import *
 from models.load_model import *
 from models.classifier import *
 
+# information in RAM usage
 print('RAM used: ', psutil.virtual_memory()[2])
 
 
@@ -53,7 +53,7 @@ parser.add_argument('--clf',
                     default='insert',
                     type=str,
                     choices=['linear', 'MLP', 'xgboost',
-                             'random_forest', 'MLP_1'],
+                             'random_forest'],
                     help='type of classifier to use')
 parser.add_argument('--num_runs',
                     default=100,
@@ -61,7 +61,7 @@ parser.add_argument('--num_runs',
                     help='how many test runs should be performed')
 args = parser.parse_args()
 
-# load config
+# load config with additional variables
 try:
     config = Box.from_yaml(filename="./configs/" + args.config + ".yaml")
 except:
@@ -97,9 +97,6 @@ print('Area Size: ', config.patch_size)
 print('Batch Size: ', config.batch_size)
 print('RAM used: ', psutil.virtual_memory()[2])
 
-# check if connected to virtual environment
-# check_venv()
-
 # setting seed for reproduceability
 seed_all(config.seed)
 
@@ -111,22 +108,12 @@ if not os.path.exists(config.dump_path):
 device = torch.device(
     f"cuda:{args.gpu_ids[0]}" if torch.cuda.is_available() else "cpu")
 
-# create training dataset
-# train_dataset = TrueForestDataset(config, mode='train')
-# test_dataset = TrueForestDataset(config, mode='test', transform=False)
-
-# create the dataloader
-# train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=config.batch_size, shuffle=config.shuffle,
-#                                                num_workers=config.num_workers, pin_memory=config.pin_memory, drop_last=True)
-# test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=config.batch_size, shuffle=config.shuffle,
-#                                               num_workers=config.num_workers, pin_memory=config.pin_memory, drop_last=True)
-
+# get the necessary dataloaders and assign to config file for later access
 train_dataloader, test_dataloader = create_dataloader(config)
-
 config.train_dataloader = train_dataloader
 config.test_dataloader = test_dataloader
 
-# load the model
+# load the model, trainer, tester
 model, trainer, tester = load_model(config, device)
 
 # initiate parallel GPUs
@@ -135,7 +122,6 @@ print("Your setup has ", torch.cuda.device_count(), "GPUs.")
 model = nn.DataParallel(model, args.gpu_ids)
 # send model to GPU
 model.to(device)
-print('RAM used: ', psutil.virtual_memory()[2])
 
 # train the model and save best version
 if config.run_mode in ['train_encoder']:
@@ -153,11 +139,14 @@ if config.run_mode in ['test_mult']:
     test_mult(config, device, train_embeddings,
               test_embeddings, num_runs=config.num_runs)
 
+# train a single classifier for self verification tool
 if config.run_mode in ['train_classifier']:
 
     create_embeddings(config, model, tester)
-    train_embeddings = get_train_embeddings(config)
+    train_embeddings = get_test_embeddings(config)
+    print(train_embeddings['Central_Valley'].shape)
+    print(train_embeddings['Central_Valley'][0])
 
-    classify(config, train_embeddings)
+    classify(config, train_embeddings, device)
 
 print('Successful execution.')

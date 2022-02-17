@@ -1,8 +1,12 @@
+import shutil
+from distutils.dir_util import copy_tree
 import pickle
 import os
+from tabnanny import check
+from unittest.mock import patch
 from box import Box
-import rioxarray as rxr
-import earthpy as et
+# import rioxarray as rxr
+# import earthpy as et
 
 # import rasterio
 # from rasterio.plot import show as sh
@@ -177,10 +181,10 @@ paths_setter(hostname, config)
 
 # arr = np.array([1, 2, 3, 4, 5, 6, 10, 10, 10])
 
-with open(config.dump_path + '/accuracies/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl', 'rb') as data:
-    acc = pickle.load(data)
+# with open(config.dump_path + '/accuracies/'+config.model_name+'_'+str(config.patch_size)+'_test_accuracies_'+config.clf+'.pkl', 'rb') as data:
+#     acc = pickle.load(data)
 
-print(acc.dict)
+# print(acc.dict)
 # print(len(acc.dict['Central_Valley']))
 
 # d = dict((i, value)
@@ -286,3 +290,119 @@ print(acc.dict)
 #     '/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump_from_remote/SimSiam_best_epoch_224.pth', map_location='cuda:0')
 
 # print(res['epoch'])
+
+# loc = ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee', 'Phoenix']
+
+# ps = [224, 448, 672, 896, 1120]
+
+# m = ['Triplet']
+
+# clf = ['linear', 'xgboost', 'MLP', 'random_forest']
+
+# for location in loc:
+#     for model in m:
+#         print(model)
+#         for patch in ps:
+#             statement = f'Area size: {patch} \t'
+#             for classifier in clf:
+#                 with open('/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump/accuracies/'+model+'_'+str(patch)+'_test_accuracies_'+classifier+'.pkl', 'rb') as data:
+#                     d = pickle.load(data)
+#                     avg = []
+#                     for k in d.dict[location]:
+#                         v = d.dict[location][k]
+#                         avg.append(v[0])
+#                     std = np.std(avg)*100
+#                     avg = np.mean(avg)*100
+#                     statement += (f'{classifier}: {avg:.2f}% +/-{std:.2f} \t ')
+#             print(statement)
+#             print(
+#                 '---------------------------------------------------------------------------------------------')
+#     print('\n')
+#     print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+#     sys.exit()
+
+
+# loc = ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee', 'Phoenix']
+
+# ps = [224, 448, 672, 896, 1120]
+
+# m = ['SimSiam', 'SimCLR', 'MoCo', 'BYOL', 'BarlowTwins']
+
+# clf = ['MLP']
+
+# for location in loc:
+#     for model in m:
+#         print(model)
+#         for patch in ps:
+#             print(patch)
+#             for classifier in clf:
+#                 with open('/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump_from_remote/similarities/'+model+'_similarities'+'_'+str(patch)+'.json', 'rb') as data:
+#                     d = pickle.load(data)
+#                 print(
+#                     f"cos positive: {d['positive']['cos']['standard']['mean']:.2f} +/- {d['positive']['cos']['standard']['std']:.2f}")
+#                 print(
+#                     f"cos negative: {d['negative']['cos']['standard']['mean']:.2f} +/- {d['negative']['cos']['standard']['std']:.2f}")
+#                 print(
+#                     f"mse positive: {d['positive']['mse']['standard']['mean']:.2f} +/- {d['positive']['mse']['standard']['std']:.2f}")
+#                 print(
+#                     f"mse negative: {d['negative']['mse']['standard']['mean']:.2f} +/- {d['negative']['mse']['standard']['std']:.2f}")
+#             print(
+#                 '---------------------------------------------------------------------------------------------')
+#     print('\n')
+#     print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+#     sys.exit()
+
+
+# device = torch.device('cpu')
+# model = ResNetSimCLR(models.__dict__['resnet50'], config)
+# model = nn.DataParallel(model)
+# checkpoint = torch.load(config.dump_path +
+#                         '/SimCLR_best_epoch_224.pth', map_location=device)
+# model.load_state_dict(checkpoint['model_state_dict'])
+# encoder = nn.Sequential(
+#     *list(model.module.encoder.children())[:-1])
+# encoder.eval()
+# encoder.to(device)
+# print('Successfully built encoder')
+
+# clf = MLP(4096, 100, 1)
+# clf.load_state_dict(torch.load(config.dump_path + '/clf/SimCLR224.pth'))
+# print('Successfully built classifier')
+
+# img_drone = ToTensor()(Image.open(
+#     '/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data/drone/Central_Valley/test/224/drone_0.png'))
+# img_sat = ToTensor()(Image.open(
+#     '/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data/satellite_rgb/Central_Valley/test/224/satellite_0.png'))
+
+# with torch.no_grad():
+#     drone_emb = encoder(torch.unsqueeze(img_drone, 0))
+#     sat_emb = encoder(torch.unsqueeze(img_sat, 0))
+
+# print(drone_emb)
+# source = '/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data/triplet/Central_Valley/train/224'
+# destination = '/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data/triplet/Central_Valley/val/123'
+
+# folders = os.listdir(source)
+
+# counter = 0
+# while counter <= 200:
+#     folder = np.random.randint(low=0, high=len(folders))
+#     copy_tree(source+'/'+str(folder), destination + '/'+str(folder))
+#     counter += 1
+
+# images = folders = os.listdir(destination)
+
+# for img in images:
+#     shutil.copyfile('/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data/satellite_rgb/Central_Valley/train/224/satellite_' +
+#                     img+'.png', '/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data/satellite_rgb/Central_Valley/train/123/satellite_'+img+'.png')
+
+
+device = torch.device('cpu')
+ps = [224, 448, 672, 896, 1120]
+imgs = [76664, 19166, 8064, 4536, 2744]
+
+for patch_size, nr_imgs in zip(ps, imgs):
+    print(patch_size)
+    checkpoint = torch.load(config.dump_path +
+                            f'/BYOL_best_epoch_{patch_size}.pth', map_location=device)
+    print(np.array(checkpoint['loss_history'])/nr_imgs)

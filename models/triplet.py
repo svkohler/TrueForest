@@ -1,3 +1,11 @@
+'''
+Code adopted with slight changes.
+Source: https://github.com/KevinMusgrave/pytorch-metric-learning
+Date: February 17th, 2022
+
+'''
+
+
 from pytorch_metric_learning.utils import common_functions
 import torch
 from torch import nn
@@ -33,7 +41,7 @@ class Triplet(nn.Module):
 
         # create the encoder
         # num_classes is the output fc dimension, zero-initialize last BNs
-        self.encoder = base_encoder()
+        self.encoder = base_encoder(pretrained=config.pretrained)
 
         encoder = self.encoder.fc.in_features
         self.encoder.fc = common_functions.Identity()

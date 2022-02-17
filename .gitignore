@@ -32,6 +32,9 @@ apex/
 dump/
 dump_from_remote/
 archive/
+API/static/images/
+API/static/preloaded_models/
+
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

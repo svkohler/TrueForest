@@ -1,3 +1,10 @@
+'''
+Code adopted with slight changes.
+Source: https://github.com/facebookresearch/barlowtwins
+Date: February 17th, 2022
+
+'''
+
 import torchvision.models as models
 import torch
 from torch import nn
@@ -14,7 +21,8 @@ class BarlowTwins(nn.Module):
     def __init__(self, base_encoder, config):
         super().__init__()
         self.config = config
-        self.encoder = base_encoder(zero_init_residual=True)
+        self.encoder = base_encoder(
+            pretrained=config.pretrained, zero_init_residual=True)
         self.encoder.fc = nn.Identity()
 
         # projector

@@ -1,41 +1,15 @@
 import pickle
 import os
-import sys
-import pandas as pd
 import numpy as np
 import random
-import math
-import warnings
 
 import torch
-from torch import nn, optim
-from torch.nn.parameter import Parameter
-from torch.utils.data import Dataset, DataLoader
-from torchvision import datasets, transforms
+from torch import optim
+from torch.utils.data import Dataset
+from torchvision import transforms
 from torchvision.transforms import ToTensor
 from PIL import Image
 import torch.nn.functional as F
-
-from pynvml import *
-import psutil
-
-
-def check_venv(venv='mt_env'):
-    '''
-    helper function to check whether connected to virtual environment
-    '''
-    if sys.prefix.split('/')[-1] != venv:
-        raise ConnectionError('Not connected to correct virtual environment')
-
-
-def get_memory_free_MiB(gpu_index):
-    '''
-    helper function to get free space on GPU unit
-    '''
-    nvmlInit()
-    handle = nvmlDeviceGetHandleByIndex(int(gpu_index))
-    mem_info = nvmlDeviceGetMemoryInfo(handle)
-    return mem_info.free // 1024 ** 2
 
 
 def seed_all(seed):
@@ -59,25 +33,34 @@ def seed_all(seed):
 def paths_setter(hostname, config):
     '''
     helper function to set correct paths dependent on which host machine the code is run.
+    Customize here if necessary.
+
     '''
 
     if hostname == 'svkohler':
         config.data_store = "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data"
-        config.dump_path = "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump"
+        config.dump_path = "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump_" + \
+            config.experiment_name
 
     if hostname == 'spaceml1.ethz.ch':
         config.data_store = "/mnt/ds3lab-scratch/svkohler/data"
-        config.dump_path = "/mnt/ds3lab-scratch/svkohler/dump"
+        config.dump_path = "/mnt/ds3lab-scratch/svkohler/dump_" + \
+            config.experiment_name
 
 
 class AccuracyCollector(object):
+    '''
+    Object to collect and store accuracy measurements during testing phase
+
+    '''
+
     def __init__(self, num_runs):
         self.runs = 0
         self.dict = {}
         self.num_runs = num_runs
 
     def update(self, location, conf, run):
-        if conf[0] != 0.5 and conf[0] >= 0.1:
+        if conf[0] >= 0.1:
             if location in self.dict.keys():
                 self.dict[location][run] = conf
             else:
@@ -87,6 +70,9 @@ class AccuracyCollector(object):
             self.dict[location] = {}
 
     def update_runs(self):
+        '''
+        Clean up and re-arange dictionary in case some runs were not able to converge 
+        '''
         self.runs = np.min([len(self.dict[location])
                            for location in self.dict.keys()])
         for loc in self.dict.keys():
@@ -94,6 +80,9 @@ class AccuracyCollector(object):
                 i, (key, value)) in enumerate(self.dict[loc].items()))
 
     def end_statement(self):
+        '''
+        end statement to summarize
+        '''
         for key in self.dict.keys():
             min = 1
             max = 0
@@ -108,21 +97,6 @@ class AccuracyCollector(object):
             avg = np.mean(avg)
             print(
                 f'Summary for {key}: Avg. acuracy: {avg} \t Max. accuracy: {max} \t Min. accuracy: {min}')
-    # def clean(self):
-    #     fewest_comp_runs = 100
-    #     for key in self.dict.keys():
-    #         if key != 'runs_completed':
-
-    #             acc = self.dict[key]
-    #             acc = np.delete(acc, np.where(acc <= 0.1))
-    #             acc = np.delete(acc, np.where(acc == 1))
-    #             if len(acc) < fewest_comp_runs:
-    #                 fewest_comp_runs = len(acc)
-    #             arr = np.zeros(self.num_runs)
-    #             arr[:len(acc)] = acc
-    #             self.dict[key] = arr
-
-    #     self.dict['runs_completed'] = fewest_comp_runs
 
 
 class AverageMeter(object):
@@ -148,7 +122,7 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
     def check_best_epoch(self, model, epoch, config):
-        self.loss_history.append(self.sum)
+        self.loss_history.append(self.avg)
         if self.best_epoch is None:
             print('Found new best model.')
             torch.save({
@@ -158,9 +132,9 @@ class AverageMeter(object):
                 'config': config
             }, config.dump_path +
                 '/'+config.model_name+'_best_epoch_'+str(config.patch_size)+'.pth')
-            self.best_epoch = self.sum
+            self.best_epoch = self.avg
         else:
-            if self.best_epoch > self.sum:
+            if self.best_epoch > self.avg:
                 print('Found new best model.')
                 torch.save({
                     'epoch': epoch,
@@ -169,7 +143,7 @@ class AverageMeter(object):
                     'config': config
                 }, config.dump_path +
                     '/'+config.model_name+'_best_epoch_'+str(config.patch_size)+'.pth')
-                self.best_epoch = self.sum
+                self.best_epoch = self.avg
         self.reset()
 
     def __str__(self):
@@ -207,18 +181,16 @@ class TrueForestDataset(Dataset):
         self.config = config
         self.mode = mode
         self.trans = transform
+        # construct datapaths
         self.satellite_rgb_dir = self.config.data_store + '/satellite_rgb/' + \
             config.location + '/' + self.mode + \
             '/' + str(config.patch_size) + '/'
-        # self.satellite_nir_dir = self.config.data_store + '/satellite_nir/' + \
-        #     config.location + '/' + self.mode + \
-        #     '/' + str(config.patch_size) + '/'
         self.drone_dir = self.config.data_store + '/drone/' + \
             config.location + '/' + self.mode + \
             '/' + str(config.patch_size) + '/'
+
         self.len = self.check_len()
         self.satellite_rgb_images = sorted(os.listdir(self.satellite_rgb_dir))
-        # self.satellite_nir_images = sorted(os.listdir(self.satellite_nir_dir))
         self.drone_images = sorted(os.listdir(self.drone_dir))
 
         # transformation parameter
@@ -234,21 +206,29 @@ class TrueForestDataset(Dataset):
     def __getitem__(self, idx):
         img_satellite = ToTensor()(Image.open(
             self.satellite_rgb_dir + self.satellite_rgb_images[idx]))
-        # augment with near infrared channel if activated
-        # if self.config.NIR:
-        #     img_satellite_nir = ToTensor()(Image.open(
-        #         self.satellite_nir_dir + self.satellite_nir_images[idx]))
-        #     img_satellite = torch.cat(
-        #         (img_satellite, img_satellite_nir), dim=0)
+
         img_drone = ToTensor()(Image.open(
             self.drone_dir + self.drone_images[idx]))
         # perform transformations
         if self.trans:
             img_satellite, img_drone = self.transform(img_satellite, img_drone)
 
+        if self.config.normalize:
+            img_satellite, img_drone = self.normalize(img_satellite, img_drone)
+
         return img_satellite, img_drone
 
+    def normalize(self, satellite, drone):
+        ''' normalize the input images '''
+        satellite = transforms.functional.normalize(
+            satellite, (0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        drone = transforms.functional.normalize(
+            drone, (0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+
+        return satellite, drone
+
     def transform(self, satellite, drone):
+        ''' transform satellite and drone images the same way '''
 
         if self.config.transforms.hflip and torch.rand(1) < self.config.transforms.hflip_prob:
             satellite = transforms.functional.hflip(satellite)
@@ -292,15 +272,11 @@ class TrueForestDataset(Dataset):
                 satellite, self.angles[idx])
             drone = transforms.functional.rotate(drone, self.angles[idx])
 
-        if self.config.transforms.normalize:
-            satellite = transforms.functional.normalize(
-                satellite, (0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
-            drone = transforms.functional.normalize(
-                drone, (0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
-
         return satellite, drone
 
     def check_len(self):
+        ''' check if each path contains the same number of images '''
+
         if len(os.listdir(self.satellite_rgb_dir)) == len(os.listdir(self.drone_dir)):
             return len(os.listdir(self.satellite_rgb_dir))
         else:
@@ -315,6 +291,8 @@ class TrueForestDataset(Dataset):
 
 
 def create_datasets(config):
+    ''' wrapper function to create datasets. test datasets are organized as a dictionary for the different locations '''
+
     test_dataset = {}
     if config.location == 'all':
         config.location = 'Central_Valley'
@@ -336,6 +314,7 @@ def create_datasets(config):
 
 
 def create_dataloader(config):
+    ''' wrapper function to create the corresponding dataloaders to the datasets. Here again the test dataloaders are organized as a dict'''
 
     train_dataset, test_dataset = create_datasets(config)
 
@@ -345,8 +324,8 @@ def create_dataloader(config):
                                                    num_workers=config.num_workers, pin_memory=config.pin_memory, drop_last=True)
 
     for ds in test_dataset.keys():
-        test_dataloader[ds] = torch.utils.data.DataLoader(test_dataset[ds], batch_size=config.batch_size, shuffle=config.shuffle,
-                                                          num_workers=config.num_workers, pin_memory=config.pin_memory, drop_last=True)
+        test_dataloader[ds] = torch.utils.data.DataLoader(test_dataset[ds], batch_size=config.batch_size, shuffle=False,
+                                                          num_workers=config.num_workers, pin_memory=config.pin_memory, drop_last=False)
 
     return train_dataloader, test_dataloader
 
@@ -431,7 +410,8 @@ class LARC(object):
 
 class LARS(optim.Optimizer):
     '''
-    optimizer
+    custom optimizer used in SimCLR, BarlowTwins, BYOL
+
     '''
 
     def __init__(self, params, lr, weight_decay=0, momentum=0.9, eta=0.001,
@@ -477,45 +457,53 @@ class LARS(optim.Optimizer):
 
 def process_data(data, config, mode, perc_pos=0.9):
     '''
-    data in the format (samples * 2xfeatures)
+    input: data in the format (samples * 2xfeatures)
     in addition to positive samples (which are given by definition) create negative ones by randomly
     combining satellite features (1st half) and drone features (2nd half) of different samples
+
     possible to not use all of the data in order to get divers datasets to train classifiers
     '''
 
+    # if in test mode use all data
     if mode == 'test':
-        # pos_labels = np.ones(len(data), dtype=np.int8)
-        # return data, pos_labels
         perc_pos = 1
 
+    # create index to randomly select positive samples
     idx = np.random.choice(data.shape[0], size=int(
         data.shape[0]*perc_pos), replace=False)
-
+    data = data[idx, :]
+    # create corresponding positive labels
     pos_labels = np.ones(len(idx), dtype=np.int8)
 
-    data = data[idx, :]
-
+    # shuffle the data to get random pairs during production of negative samples
     data_shuffled = data.copy()
     np.random.shuffle(data_shuffled)
     negative_samples = produce_negative_samples(data_shuffled)
-
+    # create corresponding negative labels
     neg_labels = np.zeros(len(negative_samples), dtype=np.int8)
 
     return np.concatenate((data, negative_samples), axis=0), np.concatenate((pos_labels, neg_labels), axis=0, dtype=np.int8)
 
 
 def produce_negative_samples(data):
+    ''' helper function to produce negative samples. input are shuffled data'''
 
+    # make copy
     data_copy = data.copy()
-
+    # shift first row to the end. Combined with the fact that we get shuffled dataset this leads
+    # no accidental positive pairs which are declared as negative ones
     data_copy = data_copy[1:, :]
-
     data_copy = np.append(data_copy, [data[0, :]], axis=0)
-
+    # return first half of columns from original shuffled dataset and second half of columns from the shifted one
     return np.concatenate((data[:, :int(data.shape[1]/2)], data_copy[:, int(data_copy.shape[1]/2):]), axis=1)
 
 
 def similarity_embeddings(data, config, verbose=True):
+    ''' 
+    function returns multiple similarity statistics for a given dataset of embeddings.
+    To account for possible outliers the statistics are also calculated on a trimmed basis.
+
+    '''
 
     data_shuffled = data.copy()
     np.random.shuffle(data_shuffled)
@@ -612,6 +600,12 @@ def similarity_embeddings(data, config, verbose=True):
         print(results)
 
 
+'''
+Below: helper fucntions for similarity statistics
+
+'''
+
+
 def dot_sim(row):
     return np.dot(row[:int(len(row)/2)], row[int(len(row)/2):])
 
@@ -637,14 +631,3 @@ def trim_stat(arr, upper_quantile=0.99, lower_quantile=0.01, stat='mean'):
         return np.array(arr_new).std()
 
     print('Error: stat not implemented.')
-
-
-def clean_acc(acc, num_runs):
-    acc = np.delete(acc, np.where(acc <= 0.1))
-    acc = np.delete(acc, np.where(acc == 1))
-
-    arr = np.zeros(num_runs)
-
-    arr[:len(acc)] = acc
-
-    return arr

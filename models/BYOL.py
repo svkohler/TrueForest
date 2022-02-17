@@ -1,3 +1,10 @@
+'''
+Code adopted with slight changes.
+Source: https://github.com/sthalles/PyTorch-BYOL
+Date: February 17th, 2022
+
+'''
+
 import torchvision.models as models
 import torch
 from torch import nn
@@ -23,7 +30,7 @@ class BYOL_Resnet(torch.nn.Module):
         super(BYOL_Resnet, self).__init__()
 
         self.base_encoder = base_encoder(
-            pretrained=False)
+            pretrained=config.pretrained)
 
         self.encoder = torch.nn.Sequential(
             *list(self.base_encoder.children())[:-1])
