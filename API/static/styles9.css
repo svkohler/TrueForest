@@ -421,8 +421,27 @@ a:visited {
 }
 
 .about {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   height: 100vh;
-  border-width: 5px;
-  border-color: orange;
-  border-style: solid;
+}
+
+#information {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--main_background);
+  height: 75%;
+  width: 75%;
+  clip-path: polygon(
+    45% 0,
+    100% 0,
+    100% 30%,
+    100% 80%,
+    60% 100%,
+    30% 100%,
+    0 100%,
+    0 13%
+  );
 }

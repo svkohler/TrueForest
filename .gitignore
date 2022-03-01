@@ -35,7 +35,6 @@ dump_pretrained/
 dump_baseline_big/
 archive/
 API/static/images/
-API/static/preloaded_models/
 
 
 # PyInstaller

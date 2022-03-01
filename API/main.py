@@ -81,6 +81,20 @@ async def handle_img(drone_img: UploadFile = File(...)):
     img.save('./static/images/drone.png')
 
 
+@app.get("/delete_images")
+async def d():
+    try:
+        os.remove('./static/images/satellite.png')
+        print('deleted satellite image')
+    except:
+        print('No satellite image to delete')
+    try:
+        os.remove('./static/images/drone.png')
+        print('deleted drone image')
+    except:
+        print('No drone image to delete')
+
+
 @app.post("/upload_coordinates")
 async def handle_coordinates(bottom_left_long: float = Form(...), bottom_left_lat: float = Form(...), top_right_long: float = Form(...), top_right_lat: float = Form(...)):
     coordinates = {}

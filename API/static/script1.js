@@ -41,7 +41,8 @@ function readImage(file) {
     reader.readAsDataURL(file);
  }
 
-function clearDD(ev){
+async function clearDD(ev){
+    await fetch('/delete_images')
     document.querySelector('#drop_zone').style.backgroundImage = null
     document.querySelector('#sat_img').style.backgroundImage = null
     document.getElementById('form_drone_img').value = null
@@ -63,6 +64,7 @@ function clearDD(ev){
     document.getElementById("val_btn").style.display = "block"
     document.getElementById("btn_container").removeChild(document.getElementById("result"))
     document.getElementById("sat_btn").style.display = "block"
+
 }
 
 function submitImgForm(){
@@ -87,6 +89,14 @@ const api_url = "./static/images/satellite.png"
 
 // Defining async function
 async function getapi(url) {
+    const response1 = await fetch(url)
+    console.log(response1.status)
+    if(response1.status != 200){
+        alert('Invalid coordinate information. Please reload and enter valid coordinates.\n\nTypically the selected are is too large.')
+        clearDD()
+        return
+    }
+    
     
     // Storing response
     const response = await fetch(url).then(function(data){

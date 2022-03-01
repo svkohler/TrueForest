@@ -52,6 +52,9 @@ import time
 import argparse
 import math
 
+# project key a0m8v9bz_y8XskCqYVnyEQn8M97NNi4Wz7dF1LUfU
+# project id a0m8v9bz
+
 # from models.classifier import load_clf
 
 parser = argparse.ArgumentParser()
