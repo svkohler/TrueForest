@@ -7,10 +7,6 @@ import socket
 from box import Box
 import argparse
 
-# imports for torch
-import torch
-from torch import nn
-
 # import from other files
 from utils import *
 from models.load_model import *
@@ -18,6 +14,38 @@ from models.classifier import *
 
 # information in RAM usage
 print('RAM used: ', psutil.virtual_memory()[2])
+
+
+def get_train_embeddings(config):
+    '''
+    function to get specifically train embeddings and load them to CPU and convert to numpy array
+
+    '''
+    train_embeddings = torch.load(
+        config.dump_path+'/embeddings/train_embeddings_' +
+        config.model_name+'_Central_Valley_'+str(config.patch_size)+'.pth', map_location='cpu')
+
+    return train_embeddings.cpu().detach().numpy()
+
+
+def get_test_embeddings(config):
+    '''
+    function to get specifically test embeddings and load them to CPU and convert to numpy array.
+    test embeddings are organised in a dictionary.
+
+    '''
+    test_embeddings = {}
+    if config.location == 'all':
+        for loc in ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee', 'Phoenix']:
+            test_embeddings[loc] = torch.load(
+                config.dump_path+'/embeddings/test_embeddings_' +
+                config.model_name+'_'+loc+'_'+str(config.patch_size)+'.pth', map_location='cpu').cpu().detach().numpy()
+    else:
+        test_embeddings[config.location] = torch.load(
+            config.dump_path+'/embeddings/test_embeddings_' +
+            config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth', map_location='cpu').cpu().detach().numpy()
+
+    return test_embeddings
 
 
 # parser to select desired arguments
@@ -29,8 +57,7 @@ parser.add_argument('--config',
                     )
 parser.add_argument('--run_mode',
                     default='insert',
-                    choices=['train_encoder', 'test_mult',
-                             'compute_similarities', 'train_classifier'],
+                    choices=['train_encoder', 'test_mult', 'train_classifier'],
                     help='Select run mode.'
                     )
 parser.add_argument('--gpu_ids',
@@ -90,6 +117,7 @@ if args.clf != 'insert':
 
 # get hostname to set the correct paths
 hostname = socket.gethostname()
+print(hostname)
 paths_setter(hostname, config)
 
 print('Working on model: ', config.model_name,
@@ -105,32 +133,10 @@ seed_all(config.seed)
 if not os.path.exists(config.dump_path):
     os.makedirs(config.dump_path)
 
-# define the device where computations are run
-device = torch.device(
-    f"cuda:{args.gpu_ids[0]}" if torch.cuda.is_available() else "cpu")
-
-# get the necessary dataloaders and assign to config file for later access
-train_dataloader, test_dataloader = create_dataloader(config)
-config.train_dataloader = train_dataloader
-config.test_dataloader = test_dataloader
-
-# load the model, trainer, tester
-model, trainer, tester = load_model(config, device)
-
-# initiate parallel GPUs
-print("Your setup has ", torch.cuda.device_count(), "GPUs.")
-# wrap model for multiple GPU usage
-model = nn.DataParallel(model, args.gpu_ids)
-# send model to GPU
-model.to(device)
-
-# train the model and save best version
-if config.run_mode in ['train_encoder']:
-    trainer.train(model)
+device = None
 
 # Do for multiple runs: train classifier on training data and subsequently test on test data.
 if config.run_mode in ['test_mult']:
-    create_embeddings(config, model, tester)
     # train_embeddings, test_embeddings = get_embeddings(config)
     train_embeddings = get_train_embeddings(config)
     test_embeddings = get_test_embeddings(config)
@@ -139,23 +145,5 @@ if config.run_mode in ['test_mult']:
 
     test_mult(config, device, train_embeddings,
               test_embeddings, num_runs=config.num_runs)
-
-
-# train a single classifier for self verification tool
-if config.run_mode in ['compute_similarities']:
-    train_embeddings = get_train_embeddings(config)
-    test_embeddings = get_test_embeddings(config)
-
-    compute_similarities(train_embeddings, test_embeddings, config)
-
-# train a single classifier for self verification tool
-if config.run_mode in ['train_classifier']:
-
-    create_embeddings(config, model, tester)
-    train_embeddings = get_test_embeddings(config)
-    print(train_embeddings['Central_Valley'].shape)
-    print(train_embeddings['Central_Valley'][0])
-
-    classify(config, train_embeddings, device)
 
 print('Successful execution.')

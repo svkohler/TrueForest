@@ -6,6 +6,8 @@ dump_path: "to-be-set" # path were intermediate files are dumped
 seed_run: 1
 seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
 
+experiment_name: "pretrained"
+
 # run mode
 run_mode: "test_mult" # choices: train_encoder, test_mult
 

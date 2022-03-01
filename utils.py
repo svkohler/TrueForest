@@ -42,9 +42,14 @@ def paths_setter(hostname, config):
         config.dump_path = "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump_" + \
             config.experiment_name
 
-    if hostname == 'spaceml1.ethz.ch':
+    elif hostname == 'spaceml1.ethz.ch':
         config.data_store = "/mnt/ds3lab-scratch/svkohler/data"
         config.dump_path = "/mnt/ds3lab-scratch/svkohler/dump_" + \
+            config.experiment_name
+
+    else:
+        config.data_store = "/cluster/home/svkohler/data"
+        config.dump_path = "/cluster/home/svkohler/dump_" + \
             config.experiment_name
 
 
@@ -498,7 +503,18 @@ def produce_negative_samples(data):
     return np.concatenate((data[:, :int(data.shape[1]/2)], data_copy[:, int(data_copy.shape[1]/2):]), axis=1)
 
 
-def similarity_embeddings(data, config, verbose=True):
+def compute_similarities(train_embeddings, test_embeddings, config):
+    '''
+    function to produce complete set of similarities
+
+    '''
+    similarity_embeddings(train_embeddings, config)
+    for emb in test_embeddings.keys():
+        similarity_embeddings(
+            test_embeddings[emb], config, loc=emb, mode='test')
+
+
+def similarity_embeddings(data, config, loc='Central_Valley', mode='train', verbose=True):
     ''' 
     function returns multiple similarity statistics for a given dataset of embeddings.
     To account for possible outliers the statistics are also calculated on a trimmed basis.
@@ -592,11 +608,12 @@ def similarity_embeddings(data, config, verbose=True):
     if not os.path.exists(config.dump_path + '/similarities/'):
         os.makedirs(config.dump_path + '/similarities/')
 
-    with open(config.dump_path + '/similarities/'+config.model_name+'_similarities_'+str(config.patch_size)+'.json', 'wb') as fp:
+    with open(config.dump_path + '/similarities/'+config.model_name+'_similarities_'+mode+'_'+str(config.patch_size)+'_'+loc+'.json', 'wb') as fp:
         pickle.dump(results, fp)
 
     if verbose:
-        print('Similarities of embeddings: ')
+        print(
+            f'{mode} similarities of embeddings in {loc} for patch size {config.patch_size}: ')
         print(results)
 
 

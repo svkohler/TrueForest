@@ -6,7 +6,7 @@ experiment_name: "pretrained"
 
 # Set seed for reproducability
 seed_run: 1
-seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
+seed: 90708 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
 
 # run mode
 run_mode: "train_encoder" # choices: train_encoder, test_mult

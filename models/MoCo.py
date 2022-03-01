@@ -80,6 +80,7 @@ class MoCo(nn.Module):
         # predictor
         self.predictor = self._build_mlp(
             2, self.config.num_projection, False)
+        print(self.predictor)
 
     @torch.no_grad()
     def _momentum_update_key_encoder(self):

@@ -291,66 +291,61 @@ paths_setter(hostname, config)
 
 # print(res['epoch'])
 
-# loc = ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee', 'Phoenix']
+loc = ['Phoenix']  # , 'Florida', 'Louisiana', 'Tennessee', 'Phoenix'
 
-# ps = [224, 448, 672, 896, 1120]
+ps = [224, 448, 672, 896, 1120]
 
-# m = ['Triplet']
+m = ['Triplet']  # 'BYOL', 'BarlowTwins', 'MoCo', 'SimCLR', 'SimSiam',
 
-# clf = ['linear', 'xgboost', 'MLP', 'random_forest']
+clf = ['linear', 'xgboost', 'MLP', 'random_forest']
 
-# for location in loc:
-#     for model in m:
-#         print(model)
-#         for patch in ps:
-#             statement = f'Area size: {patch} \t'
-#             for classifier in clf:
-#                 with open('/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump/accuracies/'+model+'_'+str(patch)+'_test_accuracies_'+classifier+'.pkl', 'rb') as data:
-#                     d = pickle.load(data)
-#                     avg = []
-#                     for k in d.dict[location]:
-#                         v = d.dict[location][k]
-#                         avg.append(v[0])
-#                     std = np.std(avg)*100
-#                     avg = np.mean(avg)*100
-#                     statement += (f'{classifier}: {avg:.2f}% +/-{std:.2f} \t ')
-#             print(statement)
-#             print(
-#                 '---------------------------------------------------------------------------------------------')
-#     print('\n')
-#     print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
-#     sys.exit()
+for location in loc:
+    for model in m:
+        print(model)
+        for patch in ps:
+            statement = f'Area size: {patch} \t'
+            for classifier in clf:
+                with open('/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump_baseline_big/accuracies/'+model+'_'+str(patch)+'_test_accuracies_'+classifier+'.pkl', 'rb') as data:
+                    d = pickle.load(data)
+                    avg = []
+                    for k in d.dict[location]:
+                        v = d.dict[location][k]
+                        avg.append(v[0])
+                    std = np.std(avg)*100
+                    avg = np.mean(avg)*100
+                    statement += (f'{classifier}: {avg:.2f}% +/-{std:.2f} \t ')
+            print(statement)
+            print(
+                '---------------------------------------------------------------------------------------------')
+    print('\n')
+    print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+    sys.exit()
 
 
-# loc = ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee', 'Phoenix']
+# 'Central_Valley', 'Florida', 'Louisiana', 'Tennessee', 'Phoenix'
+loc = ['Phoenix']
 
-# ps = [224, 448, 672, 896, 1120]
+ps = [224, 448, 672, 896, 1120]
 
-# m = ['SimSiam', 'SimCLR', 'MoCo', 'BYOL', 'BarlowTwins']
+m = ['Triplet']
 
-# clf = ['MLP']
-
-# for location in loc:
-#     for model in m:
-#         print(model)
-#         for patch in ps:
-#             print(patch)
-#             for classifier in clf:
-#                 with open('/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump_from_remote/similarities/'+model+'_similarities'+'_'+str(patch)+'.json', 'rb') as data:
-#                     d = pickle.load(data)
-#                 print(
-#                     f"cos positive: {d['positive']['cos']['standard']['mean']:.2f} +/- {d['positive']['cos']['standard']['std']:.2f}")
-#                 print(
-#                     f"cos negative: {d['negative']['cos']['standard']['mean']:.2f} +/- {d['negative']['cos']['standard']['std']:.2f}")
-#                 print(
-#                     f"mse positive: {d['positive']['mse']['standard']['mean']:.2f} +/- {d['positive']['mse']['standard']['std']:.2f}")
-#                 print(
-#                     f"mse negative: {d['negative']['mse']['standard']['mean']:.2f} +/- {d['negative']['mse']['standard']['std']:.2f}")
-#             print(
-#                 '---------------------------------------------------------------------------------------------')
-#     print('\n')
-#     print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
-#     sys.exit()
+for location in loc:
+    print(location)
+    for model in m:
+        print(model)
+        for patch in ps:
+            print(patch)
+            with open('/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump_baseline_big/similarities/'+model+'_similarities_test'+'_'+str(patch)+'_'+location+'.json', 'rb') as data:
+                d = pickle.load(data)
+            print(
+                f"cos positive: {d['positive']['cos']['standard']['mean']:.2f} +/- {d['positive']['cos']['standard']['std']:.2f} \t cos negative: {d['negative']['cos']['standard']['mean']:.2f} +/- {d['negative']['cos']['standard']['std']:.2f} \t diff cos: {d['positive']['cos']['standard']['mean']-d['negative']['cos']['standard']['mean']:.2f}")
+            print(
+                f"mse positive: {d['positive']['mse']['standard']['mean']:.2f} +/- {d['positive']['mse']['standard']['std']:.2f} \t mse negative: {d['negative']['mse']['standard']['mean']:.2f} +/- {d['negative']['mse']['standard']['std']:.2f} \t diff mse: {d['positive']['mse']['standard']['mean']-d['negative']['mse']['standard']['mean']:.2f}")
+            print(
+                '---------------------------------------------------------------------------------------------')
+    print('\n')
+    print('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+    sys.exit()
 
 
 # device = torch.device('cpu')
@@ -397,12 +392,12 @@ paths_setter(hostname, config)
 #                     img+'.png', '/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data/satellite_rgb/Central_Valley/train/123/satellite_'+img+'.png')
 
 
-device = torch.device('cpu')
-ps = [224, 448, 672, 896, 1120]
-imgs = [76664, 19166, 8064, 4536, 2744]
+# device = torch.device('cpu')
+# ps = [224, 448, 672, 896, 1120]
+# imgs = [76664, 19166, 8064, 4536, 2744]
 
-for patch_size, nr_imgs in zip(ps, imgs):
-    print(patch_size)
-    checkpoint = torch.load(config.dump_path +
-                            f'/BYOL_best_epoch_{patch_size}.pth', map_location=device)
-    print(np.array(checkpoint['loss_history'])/nr_imgs)
+# for patch_size, nr_imgs in zip(ps, imgs):
+#     print(patch_size)
+#     checkpoint = torch.load(config.dump_path +
+#                             f'/BYOL_best_epoch_{patch_size}.pth', map_location=device)
+#     print(np.array(checkpoint['loss_history'])/nr_imgs)

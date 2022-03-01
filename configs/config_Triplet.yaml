@@ -2,29 +2,29 @@
 data_store: "to-be-set"
 dump_path: "to-be-set" # path were intermediate files are dumped
 
-experiment_name: "pretrained"
+experiment_name: "baseline_big"
 
 # Set seed for reproducability
 seed_run: 1
 seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
 
 # run mode
-run_mode: "test_mult" # choices: train_encoder, test_mult
+run_mode: "train_encoder" # choices: train_encoder, test_mult
 
 # data information
 patch_size: 224
-location: "Central_Valley"
+location: "all"
 
 # model specifications
 model_name: "Triplet"
-base_architecture: "resnet18" # choices: resnet50, resnet101, wide_resnet50_2, wide_resnet101_2
+base_architecture: "resnet50" # choices: resnet50, resnet101, wide_resnet50_2, wide_resnet101_2
 pretrained: True
 num_features: 2048 # size of feature vector which is used for loss function
 num_hidden: 512 # size of hidden layer in projection head
 num_projection: 64 # size after projection
 
 # training parameter
-num_epochs: 4
+num_epochs: 100
 batch_size: 64
 shuffle: True
 num_workers: 12

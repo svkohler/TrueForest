@@ -610,8 +610,8 @@ class Triplet_trainer(object):
             train_dataset.targets, m=2, length_before_new_iter=len(train_dataset))
 
         # Package the above stuff into dictionaries.
-        models = {"trunk": model.module.encoder,
-                  "embedder": model.module.embedder}
+        models = {"trunk": nn.DataParallel(model.module.encoder.to(self.device), self.config.gpu_ids),
+                  "embedder": nn.DataParallel(model.module.embedder.to(self.device), self.config.gpu_ids)}
         optimizers = {"trunk_optimizer": self.encoder_optimizer,
                       "embedder_optimizer": self.embedder_optimizer}
         loss_funcs = {"metric_loss": self.loss}

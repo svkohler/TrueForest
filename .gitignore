@@ -31,6 +31,8 @@ data/
 apex/
 dump/
 dump_from_remote/
+dump_pretrained/
+dump_baseline_big/
 archive/
 API/static/images/
 API/static/preloaded_models/
