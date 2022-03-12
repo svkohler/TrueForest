@@ -146,7 +146,7 @@ if config.run_mode in ['compute_similarities']:
     train_embeddings = get_train_embeddings(config)
     test_embeddings = get_test_embeddings(config)
 
-    compute_similarities(train_embeddings, test_embeddings, config)
+    compute_similarities_raw(train_embeddings, test_embeddings, config)
 
 # train a single classifier for self verification tool
 if config.run_mode in ['train_classifier']:

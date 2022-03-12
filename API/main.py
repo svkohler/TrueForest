@@ -45,7 +45,8 @@ encoder.to(device)
 print('Successfully built encoder')
 
 clf = MLP(4096, 100, 1)
-clf.load_state_dict(torch.load('./static/preloaded_models/SimCLR224.pth'))
+clf.load_state_dict(torch.load(
+    './static/preloaded_models/SimCLR224.pth', map_location=device))
 print('Successfully built classifier')
 
 

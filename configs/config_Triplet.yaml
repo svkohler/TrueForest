@@ -2,7 +2,7 @@
 data_store: "to-be-set"
 dump_path: "to-be-set" # path were intermediate files are dumped
 
-experiment_name: "baseline_big"
+experiment_name: "pretrained"
 
 # Set seed for reproducability
 seed_run: 1

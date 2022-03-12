@@ -514,6 +514,17 @@ def compute_similarities(train_embeddings, test_embeddings, config):
             test_embeddings[emb], config, loc=emb, mode='test')
 
 
+def compute_similarities_raw(train_embeddings, test_embeddings, config):
+    '''
+    function to produce complete set of similarities
+
+    '''
+    similarity_embeddings_raw(train_embeddings, config)
+    for emb in test_embeddings.keys():
+        similarity_embeddings_raw(
+            test_embeddings[emb], config, loc=emb, mode='test')
+
+
 def similarity_embeddings(data, config, loc='Central_Valley', mode='train', verbose=True):
     ''' 
     function returns multiple similarity statistics for a given dataset of embeddings.
@@ -609,6 +620,49 @@ def similarity_embeddings(data, config, loc='Central_Valley', mode='train', verb
         os.makedirs(config.dump_path + '/similarities/')
 
     with open(config.dump_path + '/similarities/'+config.model_name+'_similarities_'+mode+'_'+str(config.patch_size)+'_'+loc+'.json', 'wb') as fp:
+        pickle.dump(results, fp)
+
+    if verbose:
+        print(
+            f'{mode} similarities of embeddings in {loc} for patch size {config.patch_size}: ')
+        print(results)
+
+
+def similarity_embeddings_raw(data, config, loc='Central_Valley', mode='train', verbose=False):
+    ''' 
+    function returns multiple similarity statistics for a given dataset of embeddings.
+    To account for possible outliers the statistics are also calculated on a trimmed basis.
+
+    '''
+
+    data_shuffled = data.copy()
+    np.random.shuffle(data_shuffled)
+    negatives = produce_negative_samples(data_shuffled)
+
+    pos_dot = np.apply_along_axis(dot_sim, 1, data)
+    pos_cos = np.apply_along_axis(cos_sim, 1, data)
+    pos_mse = np.apply_along_axis(mse, 1, data)
+    neg_dot = np.apply_along_axis(dot_sim, 1, negatives)
+    neg_cos = np.apply_along_axis(cos_sim, 1, negatives)
+    neg_mse = np.apply_along_axis(mse, 1, negatives)
+
+    results = {
+        'positive': {
+            'dot': pos_dot,
+            'cos': pos_cos,
+            'mse': pos_mse
+        },
+        'negative': {
+            'dot': neg_dot,
+            'cos': neg_cos,
+            'mse': neg_mse
+        }
+    }
+
+    if not os.path.exists(config.dump_path + '/similarities_raw/'):
+        os.makedirs(config.dump_path + '/similarities_raw/')
+
+    with open(config.dump_path + '/similarities_raw/'+config.model_name+'_similarities_'+mode+'_'+str(config.patch_size)+'_'+loc+'.json', 'wb') as fp:
         pickle.dump(results, fp)
 
     if verbose:
