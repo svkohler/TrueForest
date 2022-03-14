@@ -35,7 +35,11 @@ dump_pretrained/
 dump_baseline_big/
 archive/
 API/static/images/
-
+results/
+remote_commands.txt
+website_test/
+plots.ipynb
+results.py
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
