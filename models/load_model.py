@@ -3,12 +3,12 @@ from models.SimCLR import ResNetSimCLR
 from models.BYOL import BYOL
 from models.BarlowTwins import BarlowTwins
 from models.MoCo import MoCo
-from models.triplet import Triplet
+from models.MetricLearning import MetricLearner
 
 import torchvision.models as models
 
-from models.model_trainer import SimCLR_trainer, SimSiam_trainer, BYOL_trainer, BarlowTwins_trainer, MoCo_trainer, Triplet_trainer
-from models.model_tester import Tester, Triplet_tester
+from models.model_trainer import SimCLR_trainer, SimSiam_trainer, BYOL_trainer, BarlowTwins_trainer, MoCo_trainer, MetricLearning_trainer
+from models.model_tester import Tester, MetricLearning_tester
 
 
 def load_model(config, device):
@@ -17,12 +17,12 @@ def load_model(config, device):
 
     '''
 
-    if config.model_name == 'Triplet':
+    if config.model_name == 'MetricLearning':
         base_encoder = models.__dict__[config.base_architecture]
-        model = Triplet(base_encoder=base_encoder, config=config)
+        model = MetricLearner(base_encoder=base_encoder, config=config)
 
-        trainer = Triplet_trainer(config, device)
-        tester = Triplet_tester(config, device)
+        trainer = MetricLearning_trainer(config, device)
+        tester = MetricLearning_tester(config, device)
 
         return model, trainer, tester
 

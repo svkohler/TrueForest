@@ -71,7 +71,7 @@ class Tester(object):
 # ------------------- Triplet Tester -------------------- #
 
 
-class Triplet_tester(object):
+class MetricLearning_tester(object):
     def __init__(self, config, device):
         self.config = config
         self.device = device

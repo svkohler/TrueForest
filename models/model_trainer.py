@@ -569,7 +569,7 @@ class BYOL_trainer(object):
             losses.check_best_epoch(model, epoch, self.config)
 
 
-# ------------------- Triplet trainer -------------------- #
+# ------------------- MetricLearning trainer -------------------- #
 
 '''
 Code adopted with slight changes.
@@ -579,7 +579,7 @@ Date: February 17th, 2022
 '''
 
 
-class Triplet_trainer(object):
+class MetricLearning_trainer(object):
     def __init__(self, config, device):
         self.config = config
         self.device = device
@@ -592,7 +592,7 @@ class Triplet_trainer(object):
                                               transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
         train_dataset = datasets.ImageFolder(
-            self.config.data_store+'/triplet/'+self.config.location+'/train/'+str(self.config.patch_size), transform=train_transform)
+            self.config.data_store+'/MetricLearning/'+self.config.location+'/train/'+str(self.config.patch_size), transform=train_transform)
 
         self.encoder_optimizer = torch.optim.Adam(
             model.module.encoder.parameters(), lr=0.0001, weight_decay=0.0001)

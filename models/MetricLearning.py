@@ -34,10 +34,10 @@ class MLP_head(nn.Module):
         return self.net(x)
 
 
-class Triplet(nn.Module):
+class MetricLearner(nn.Module):
 
     def __init__(self, base_encoder, config):
-        super(Triplet, self).__init__()
+        super(MetricLearner, self).__init__()
 
         # create the encoder
         # num_classes is the output fc dimension, zero-initialize last BNs

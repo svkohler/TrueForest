@@ -1,40 +1,45 @@
-# TrueForest
-
 ![plot](./trueforest.png)
 
 Welcome!
 
-This is the Git Repository of Livio Schläpfer, Mathias Rouss and Sven Kohler containing the code to reproduce our experimental results for the Road Segmentation Challenge which was completed as part of the Computational Intelligence Lab 2021.
+This is the Git Repository of Sven Kohler containing the code to reproduce the data and experimental results for my Master's thesis _Towards Trusted Self-Reports With Foundational Models_.
 
 ## Directory Structure
 
 ```
+├── API
+│   ├── static
+│   ├── templates
+│   ├── main.py
+│   ├── SimCLR.py
+│   └── utils.py
 ├── configs
-│   ├── baseline_deeplab.yaml
+│   ├── config_BarlowTwins.yaml
 │   ├── ...
 │   └── custom.yaml
-├── src
-│   ├── criterion
-│   │   ├── focal_loss.py
-│   │   ├── dice_loss.py
-│   │   └── ...
-│   ├── models
-│   │   ├── deeplabv3.py
-│   │   └── ...
-│   ├── trainer.py
-│   ├── tester.py
-│   └── ...
-├── runner_training.py
-├── runner_test.py
-├── ...
-└── mask_to_submission.py
+├── GEE
+│   ├── NAIP_extraction.py
+│   ├── Sentinel_extraction.py
+│   ├── process_data.py
+│   └── tif_to_png.py
+├── models
+│   ├── BarlowTwins.py
+│   ├── ...
+│   ├── MetricLearning.py
+│   ├── load_model.py
+│   ├── model_trainer.py
+│   └── model_tester.py
+├── main.py
+└── utils.py
+
 ```
 
 Some notes:
 
-1. Configurations for baselines are directly provided, while the remaining configurations of experiments are provided in our [Polybox Model Store](https://polybox.ethz.ch/index.php/s/qtn4FY23P8lj4xG?path=%2FExperiments).
-2. Directories `src/cirterion` and `src/models` contain implementations of different loss functions and model architectures used within our experiments. The remaining files in the `src` directory are helpers to the runner files.
-3. Files starting with `runner_...` are used to do training / testing runs, see section [Reproducing Scores](#reproducing-scores).
+1. API: this folder contains the code for the online application to verify drone imagery. The API is implemented using FastAPI. Please visit the website under: www.TBD.org
+2. configs: find here the configuration files to reproduce the experimental results. There exists an individual file for each SSL architecture.
+3. GEE: Contents of this folder are for extracting Sentinel/NAIP imagery in TIF format from Google Earth Engine (GEE) and then subsequently processing it into patches of the preferred size in PNG format.
+4. models: This folder contains code for the SSL architectures aswell as code for training/testing and loading the desired model.
 
 ## Getting started
 

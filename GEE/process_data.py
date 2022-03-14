@@ -67,12 +67,12 @@ patch_size = int(args.patch_size)
 Image.MAX_IMAGE_PIXELS = 9999999999
 
 # define paths
-if config.model_name == 'Triplet':
+if config.model_name == 'MetricLearning':
     paths = {
         'raw_naip': config.data_store + '/raw/NAIP/'+args.location+'/'+args.data_type,
         'raw_sen_rgb': config.data_store + '/raw/Sentinel_RGB/'+args.location+'/'+args.data_type,
-        'drone': config.data_store + '/triplet/'+args.location+'/'+args.data_type+'/' + str(patch_size),
-        'sat_rgb': config.data_store+'/triplet/'+args.location+'/'+args.data_type+'/' + str(patch_size),
+        'drone': config.data_store + '/MetricLearning/'+args.location+'/'+args.data_type+'/' + str(patch_size),
+        'sat_rgb': config.data_store+'/MetricLearning/'+args.location+'/'+args.data_type+'/' + str(patch_size),
     }
 else:
     paths = {

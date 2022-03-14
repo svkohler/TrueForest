@@ -43,7 +43,7 @@ class tif2png():
                 sentinel_rgb_crop = sentinel_rgb.crop((int(j*patch_size_sentinel), int(i*patch_size_sentinel),
                                                        int(patch_size_sentinel+j * patch_size_sentinel), int(patch_size_sentinel+i*patch_size_sentinel))).resize((res_out, res_out))
 
-                if config.model_name == 'Triplet':
+                if config.model_name == 'MetricLearning':
                     os.makedirs(paths['drone'] + '/' + str(self.counter))
                     sentinel_rgb_crop.save(
                         paths['sat_rgb'] + '/' + str(self.counter)+'/sentinel_'+str(self.counter)+'.png')
