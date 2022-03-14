@@ -28,35 +28,24 @@ def create_embeddings(config, model, tester):
     if not os.path.exists(config.dump_path+'/embeddings'):
         os.mkdir(config.dump_path+'/embeddings')
 
-    if os.path.isfile(config.dump_path+'/embeddings/train_embeddings_'+config.model_name+'_Central_Valley_'+str(config.patch_size)+'.pth') == False:
+    if os.path.isfile(config.dump_path+'/embeddings/train_embeddings_'+config.model_name+'_'+config.location[0]+'_'+str(config.patch_size)+'.pth') == False:
         # call tester to create embeddings
         train_embeddings = tester.test(model, data='train')
         torch.save(train_embeddings, config.dump_path+'/embeddings/train_embeddings_' +
-                   config.model_name+'_Central_Valley_'+str(config.patch_size)+'.pth')
+                   config.model_name+'_'+config.location[0]+'_'+str(config.patch_size)+'.pth')
         print('train embeddings created')
     else:
         print('train embeddings already exist')
 
-    if config.location == 'all':
-        # loop through different locations
-        for loc in ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee', 'Phoenix']:
-            if os.path.isfile(config.dump_path+'/embeddings/test_embeddings_'+config.model_name+'_'+loc+'_'+str(config.patch_size)+'.pth') == False:
-                # call tester to create embeddings
-                test_embeddings = tester.test(model, data='test', location=loc)
-                torch.save(test_embeddings, config.dump_path+'/embeddings/test_embeddings_' +
-                           config.model_name+'_'+loc+'_'+str(config.patch_size)+'.pth')
-                print(f'{loc}: test embeddings created')
-            else:
-                print(f'{loc}: test embeddings already exist')
-    else:
-        if os.path.isfile(config.dump_path+'/embeddings/test_embeddings_'+config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth') == False:
-            test_embeddings = tester.test(
-                model, data='test', location=config.location)
+    for loc in config.location[1:]:
+        if os.path.isfile(config.dump_path+'/embeddings/test_embeddings_'+config.model_name+'_'+loc+'_'+str(config.patch_size)+'.pth') == False:
+            # call tester to create embeddings
+            test_embeddings = tester.test(model, data='test', location=loc)
             torch.save(test_embeddings, config.dump_path+'/embeddings/test_embeddings_' +
-                       config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth')
-            print(f'{config.location}: test embeddings created')
+                       config.model_name+'_'+loc+'_'+str(config.patch_size)+'.pth')
+            print(f'{loc}: test embeddings created')
         else:
-            print(f'{config.location}: test embeddings already exist')
+            print(f'{loc}: test embeddings already exist')
 
 
 def get_train_embeddings(config):
@@ -66,7 +55,7 @@ def get_train_embeddings(config):
     '''
     train_embeddings = torch.load(
         config.dump_path+'/embeddings/train_embeddings_' +
-        config.model_name+'_Central_Valley_'+str(config.patch_size)+'.pth', map_location=f'cuda:{config.gpu_ids[0]}')
+        config.model_name+'_'+config.location[0]+'_'+str(config.patch_size)+'.pth', map_location=f'cuda:{config.gpu_ids[0]}')
 
     return train_embeddings.cpu().detach().numpy()
 
@@ -78,15 +67,10 @@ def get_test_embeddings(config):
 
     '''
     test_embeddings = {}
-    if config.location == 'all':
-        for loc in ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee', 'Phoenix']:
-            test_embeddings[loc] = torch.load(
-                config.dump_path+'/embeddings/test_embeddings_' +
-                config.model_name+'_'+loc+'_'+str(config.patch_size)+'.pth', map_location=f'cuda:{config.gpu_ids[0]}').cpu().detach().numpy()
-    else:
-        test_embeddings[config.location] = torch.load(
+    for loc in config.location[1:]:
+        test_embeddings[loc] = torch.load(
             config.dump_path+'/embeddings/test_embeddings_' +
-            config.model_name+'_'+config.location+'_'+str(config.patch_size)+'.pth', map_location=f'cuda:{config.gpu_ids[0]}').cpu().detach().numpy()
+            config.model_name+'_'+loc+'_'+str(config.patch_size)+'.pth', map_location=f'cuda:{config.gpu_ids[0]}').cpu().detach().numpy()
 
     return test_embeddings
 

@@ -24,7 +24,6 @@ print('RAM used: ', psutil.virtual_memory()[2])
 parser = argparse.ArgumentParser()
 parser.add_argument('--config',
                     default='custom',
-                    # choices=['custom'],
                     help='Select one of the experiments described in our report or setup a custom config file'
                     )
 parser.add_argument('--run_mode',

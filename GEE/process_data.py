@@ -12,23 +12,12 @@ import numpy as np
 from PIL import Image
 import os
 import sys
-
-
-def paths_setter(hostname, config):
-    if hostname == 'svkohler':
-        config.data_store = "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data"
-        config.dump_path = "/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/dump"
-
-    if hostname == 'spaceml1.ethz.ch':
-        config.data_store = "/mnt/ds3lab-scratch/svkohler/data"
-        config.dump_path = "/mnt/ds3lab-scratch/svkohler/dump"
-
+from ..utils import paths_setter
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--patch_size',
                     type=int,
-                    help='Choose patch size for images in meters',
-                    choices=[224, 448, 672, 896, 1120]
+                    help='Choose patch size for images in meters'
                     )
 parser.add_argument('--data_type',
                     type=str,
@@ -37,9 +26,7 @@ parser.add_argument('--data_type',
                     )
 parser.add_argument('--location',
                     type=str,
-                    help='Location of images',
-                    choices=['Central_Valley', 'Florida',
-                             'Tennessee', 'Louisiana', 'Phoenix']
+                    help='Location of images'
                     )
 args = parser.parse_args()
 
@@ -70,24 +57,24 @@ Image.MAX_IMAGE_PIXELS = 9999999999
 if config.model_name == 'MetricLearning':
     paths = {
         'raw_naip': config.data_store + '/raw/NAIP/'+args.location+'/'+args.data_type,
-        'raw_sen_rgb': config.data_store + '/raw/Sentinel_RGB/'+args.location+'/'+args.data_type,
+        'raw_sen': config.data_store + '/raw/Sentinel/'+args.location+'/'+args.data_type,
         'drone': config.data_store + '/MetricLearning/'+args.location+'/'+args.data_type+'/' + str(patch_size),
-        'sat_rgb': config.data_store+'/MetricLearning/'+args.location+'/'+args.data_type+'/' + str(patch_size),
+        'sat': config.data_store+'/MetricLearning/'+args.location+'/'+args.data_type+'/' + str(patch_size),
     }
 else:
     paths = {
         'raw_naip': config.data_store + '/raw/NAIP/'+args.location+'/'+args.data_type,
-        'raw_sen_rgb': config.data_store + '/raw/Sentinel_RGB/'+args.location+'/'+args.data_type,
+        'raw_sen': config.data_store + '/raw/Sentinel/'+args.location+'/'+args.data_type,
         'drone': config.data_store + '/drone/'+args.location+'/'+args.data_type+'/' + str(patch_size),
-        'sat_rgb': config.data_store+'/satellite_rgb/'+args.location+'/'+args.data_type+'/' + str(patch_size),
+        'sat': config.data_store+'/satellite/'+args.location+'/'+args.data_type+'/' + str(patch_size),
     }
 
-# get the list of naip, sentinel_RGB, sentinel_NIR image patches
+# get the list of naip, sentinel, sentinel_NIR image patches
 naip_patches = os.listdir(paths['raw_naip'])
-sentinel_RGB_patches = os.listdir(paths['raw_sen_rgb'])
+sentinel_patches = os.listdir(paths['raw_sen'])
 # extract coordinates from image path to later match against
-sentinel_RGB_coordinates = [
-    patch[19:len(patch)-4] for patch in sentinel_RGB_patches]
+sentinel_coordinates = [
+    patch[19:len(patch)-4] for patch in sentinel_patches]
 
 # loop over naip image patches and search for the corresponding sentinel satellite patch
 converter = tif2png()
@@ -95,17 +82,17 @@ for patch in naip_patches:
     # get naip coordinated
     coordinates = patch[11:len(patch)-4]
     # find the indices of the corresponding sentinel images
-    idx_RGB = sentinel_RGB_coordinates.index(coordinates)
+    idx = sentinel_coordinates.index(coordinates)
 
     # read the images
     naip = Image.fromarray(
         np.uint8(io.imread(paths['raw_naip'] + '/'+patch))[:, :, :3])
-    sentinel_rgb = Image.fromarray(
-        np.uint8(io.imread(paths['raw_sen_rgb'] + '/'+sentinel_RGB_patches[idx_RGB])))
+    sentinel = Image.fromarray(
+        np.uint8(io.imread(paths['raw_sen'] + '/'+sentinel_patches[idx])))
 
     print('Loaded coordiantes: ', coordinates)
 
-    converter(config, paths, naip, sentinel_rgb, patch_size,
+    converter(config, paths, naip, sentinel, patch_size,
               NAIP_RESOLUTION, SENTINEL_RESOLUTION)
 
     print('Succesfully cropped coordiantes: ', coordinates)

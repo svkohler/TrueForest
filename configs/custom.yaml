@@ -6,46 +6,46 @@ dump_path: "to-be-set" # path were intermediate files are dumped
 seed_run: 1
 seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
 
-experiment_name: "pretrained"
+experiment_name: "test"
 
 # run mode
-run_mode: "test_mult" # choices: train_encoder, test_mult
+run_mode: "train_encoder" # choices: train_encoder, test_mult
 
 # data information
 patch_size: 224
-location: "all" # choices ['all', 'Central_Valley', 'Florida', 'Louisiana', 'Tennessee']
+location: ["Central_Valley"]
 
 # model specifications
-model_name: "None"
+model_name: "SimSiam"
 base_architecture: "resnet50" # choices: resnet50, resnet101, wide_resnet50_2, wide_resnet101_2
-num_features: 256 # size of feature vector which is used for loss function
-num_hidden: 2048 # size of hidden layer in projection head
-num_projection: 256 # size after projection
+pretrained: True
+num_features: 2048 # size of feature vector which is used for loss function
+num_hidden: 512 # size of hidden layer in projection head
+num_projection: 2048 # size after projection
 
 # training parameter
 num_epochs: 100
-batch_size: 256
+batch_size: 32
 shuffle: True
-num_workers: 12
+num_workers: 8
 pin_memory: True
 fp16_precision: True
 
 # model specific training parameters
-temperature: 0.07 # --used
-normalize: True
+temperature: 0.07
 epsilon: 0.005
-queue_length: 16384 # --used
+queue_length: 2048
 epoch_queue_starts: 5
 sinkhorn_iterations: 3
 freeze_prototypes_niters: 313
 num_prototypes: 3000
 
 # learning rate schedule
-init_lr: 0.03 # --used
+init_lr: 0.05 # --used
 final_lr: 0
-momentum: 0.9 #--used
+momentum: 0.9 # --used
 weight_decay: 0.0001 # --used
-warm_up_epochs: 2 # --used
+warm_up_epochs: 2
 init_warm_up_lr: 0
 ema_factor: 0.99
 
@@ -70,15 +70,10 @@ transforms:
   saturation_prob: 0.3
   gaussian_blur: True
   gaussian_blur_prob: 0.2
-  normalize: False
+normalize: True
 
 # --------------------------
 
 # binary classifier
 classify: True
-clf: "xgboost" # choices random_forest, linear, xgboost, MLP
-neg_samples_factor: 1 # positive int
-
-# ------------------------
-
-best_epoch: None
+clf: "random_forest" # choices random_forest, linear, xgboost, MLP

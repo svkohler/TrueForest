@@ -182,16 +182,16 @@ class TrueForestDataset(Dataset):
     dataset to train TrueForest models
     '''
 
-    def __init__(self, config, mode, transform=True):
+    def __init__(self, config, location, mode, transform=True):
         self.config = config
         self.mode = mode
         self.trans = transform
         # construct datapaths
-        self.satellite_rgb_dir = self.config.data_store + '/satellite_rgb/' + \
-            config.location + '/' + self.mode + \
+        self.satellite_rgb_dir = self.config.data_store + '/satellite/' + \
+            location + '/' + self.mode + \
             '/' + str(config.patch_size) + '/'
         self.drone_dir = self.config.data_store + '/drone/' + \
-            config.location + '/' + self.mode + \
+            location + '/' + self.mode + \
             '/' + str(config.patch_size) + '/'
 
         self.len = self.check_len()
@@ -298,22 +298,30 @@ class TrueForestDataset(Dataset):
 def create_datasets(config):
     ''' wrapper function to create datasets. test datasets are organized as a dictionary for the different locations '''
 
+    train_dataset = TrueForestDataset(
+        config, location=config.location[0], mode='train')
+    print(f'Created train dataset for {config.location[0]}')
     test_dataset = {}
-    if config.location == 'all':
-        config.location = 'Central_Valley'
-        train_dataset = TrueForestDataset(config, mode='train')
-        for loc in ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee', 'Phoenix']:
-            config.location = loc
-            test_dataset[loc] = TrueForestDataset(
-                config, mode='test', transform=False)
-        config.location = 'all'
-    else:
-        swap = config.location
-        config.location = 'Central_Valley'
-        train_dataset = TrueForestDataset(config, mode='train')
-        config.location = swap
-        test_dataset[config.location] = TrueForestDataset(
-            config, mode='test', transform=False)
+    for loc in config.location[1:]:
+        test_dataset[loc] = TrueForestDataset(
+            config, location=loc, mode='test', transform=False)
+        print(f'Created train dataset for {loc}')
+
+    # if config.location == 'all':
+    #     config.location = 'Central_Valley'
+    #     train_dataset = TrueForestDataset(config, mode='train')
+    #     for loc in ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee', 'Phoenix']:
+    #         config.location = loc
+    #         test_dataset[loc] = TrueForestDataset(
+    #             config, mode='test', transform=False)
+    #     config.location = 'all'
+    # else:
+    #     swap = config.location
+    #     config.location = 'Central_Valley'
+    #     train_dataset = TrueForestDataset(config, mode='train')
+    #     config.location = swap
+    #     test_dataset[config.location] = TrueForestDataset(
+    #         config, mode='test', transform=False)
 
     return train_dataset, test_dataset
 

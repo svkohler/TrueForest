@@ -33,6 +33,7 @@ dump/
 dump_from_remote/
 dump_pretrained/
 dump_baseline_big/
+dump_test/
 archive/
 API/static/images/
 results/
