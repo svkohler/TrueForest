@@ -1,19 +1,14 @@
-# Data storage
-data_store: "to-be-set"
-dump_path: "to-be-set" # path were intermediate files are dumped
-
-experiment_name: "default"
-
 # Set seed for reproducability
-seed_run: 1
 seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
 
+experiment_name: "test"
+
 # run mode
-run_mode: "train_encoder" # choices: train_encoder, test_mult, compute_similarities, train_classifier
+run_mode: "train_encoder" # choices: train_encoder, test_mult, train_classifier
 
 # data information
 patch_size: 224
-location: "all"
+location: ["Central_Valley"]
 
 # model specifications
 model_name: "SimSiam"

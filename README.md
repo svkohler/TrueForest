@@ -86,13 +86,25 @@ Then create a datafolder expanding the above folder structure according to your 
 │           │── ...
 │           └── location Z
 │               └── train
+│                   └── patch_size 1
+│                   └── ...
+│                   └── patch_size x
 │               └── test
-        └── Sentinel
+│                   └── patch_size 1
+│                   └── ...
+│                   └── patch_size x
+│       └── Sentinel
 │           │── location A
 │           │── ...
 │           └── location Z
 │               └── train
+│                   └── patch_size 1
+│                   └── ...
+│                   └── patch_size x
 │               └── test
+│                   └── patch_size 1
+│                   └── ...
+│                   └── patch_size x
 ```
 
 **3) Download Data**
@@ -120,3 +132,15 @@ Step 2)-5) (creating embeddings, training classifier, prediction) are jointly pe
 ```
 python3 main.py --config custom --run_mode test_mult --patch_size 224 --clf MLP
 ```
+
+## Configuration files
+
+To reproduce the scores presented in our report the interested user will mainly interact with the configuration files under `configs/`. Below you find a detailed list of available settings,flags, and variables:
+
+- seed [int]: To reproduce results, select seed for all random processes.
+- run_mode [str]: choices below
+  - train_encoder: choose this mode to train the elected SSL architecture and save the weights in your dump path.
+  - test_mult: chose this mode to create embeddings, train the chosen classifier and predict on test data. This will be repeated for a given number of iterations. At each iteration the model accuracy is recorded.
+  - train_classifier: this mode is specifically for training a single classifier for later implementation in the web-based verification system.
+- patch_size [int]: Refers to the edge length of the images the model will be trained on. Available sizes are determined by the previously created data (see data folder structure).
+- location [List[str]]:
