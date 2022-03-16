@@ -152,7 +152,7 @@ python3 main.py --config custom --run_mode test_mult --patch_size 224 --clf MLP
 
 To reproduce the scores presented in our report the interested user will mainly interact with the configuration files under `configs/`. Below you find a detailed list of available settings,flags, and variables:
 
-### General settings
+## General settings
 
 - seed [int]: To reproduce results, select seed for all random processes.
 - experiment_name [str]: provide name for your experiment. A matching dump folder will be created.
