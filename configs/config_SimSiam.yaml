@@ -30,10 +30,6 @@ fp16_precision: True
 temperature: 0.07
 epsilon: 0.005
 queue_length: 2048
-epoch_queue_starts: 5
-sinkhorn_iterations: 3
-freeze_prototypes_niters: 313
-num_prototypes: 3000
 
 # learning rate schedule
 init_lr: 0.05 # --used
@@ -41,7 +37,6 @@ final_lr: 0
 momentum: 0.9 # --used
 weight_decay: 0.0001 # --used
 warm_up_epochs: 2
-init_warm_up_lr: 0
 ema_factor: 0.99
 
 # log
@@ -70,5 +65,4 @@ normalize: True
 # --------------------------
 
 # binary classifier
-classify: True
 clf: "random_forest" # choices random_forest, linear, xgboost, MLP
