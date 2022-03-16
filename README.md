@@ -86,25 +86,13 @@ Then create a datafolder expanding the above folder structure according to your 
 │           │── ...
 │           └── location Z
 │               └── train
-│                   └── patch_size 1
-│                   └── ...
-│                   └── patch_size x
 │               └── test
-│                   └── patch_size 1
-│                   └── ...
-│                   └── patch_size x
 │       └── Sentinel
 │           │── location A
 │           │── ...
 │           └── location Z
 │               └── train
-│                   └── patch_size 1
-│                   └── ...
-│                   └── patch_size x
 │               └── test
-│                   └── patch_size 1
-│                   └── ...
-│                   └── patch_size x
 ```
 
 **3) Download Data**
