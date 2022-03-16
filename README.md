@@ -76,7 +76,7 @@ def paths_setter(hostname, config):
         config.dump_path = "please enter path to dump location here" + "/dump_" + config.experiment_name
 ```
 
-Then create a datafolder expanding the above folder structure according to your need in the following way:
+Then create a datafolder expanding the above folder structure according to your needs in the following way:
 
 ```
 ├── data
@@ -97,10 +97,37 @@ Then create a datafolder expanding the above folder structure according to your 
 
 **3) Download Data**
 
-Use the files `GEE/NAIP_extraction.py` and `GEE/sentinel_extraction.py` to get the desired imagery downloaded onto your Google Drive. Now assign downloaded imagery to the data folder created in the previous step. Next, run `GEE/process_data.py` to convert the raw TIF files into PNG files of the proper dimensions. Example below:
+Use the files `GEE/NAIP_extraction.py` and `GEE/sentinel_extraction.py` to get the desired imagery downloaded onto your Google Drive. Now assign downloaded imagery to the data folder created in the previous step. Next, run `GEE/process_data.py` to convert the raw TIF files into PNG files of the proper dimensions. Few Example below:
 
 ```
 python3 process_data.py --patch_size 224 --data_type train --location Central_Valley
+python3 process_data.py --patch_size 224 --data_type test --location Central_Valley
+python3 process_data.py --patch_size 448 --data_type test --location Florida
+```
+
+This will expand the data folder in the following way:
+
+```
+├── data
+│   │── raw
+│   │── drone
+│   │   │── Central_Valley
+│   │   │   │── train
+│   │   │   │   └── 224
+│   │   │   └── test
+│   │   │       └── 224
+│   │   └── Florida
+│   │       └── test
+│   │           └── 448
+│   └── satellite
+│       │── Central_Valley
+│       │   │── train
+│       │   │   └── 224
+│       │   └── test
+│       │       └── 224
+│       └── Florida
+│           └── test
+│               └── 448
 ```
 
 ## End-to-end training and testing pipeline
