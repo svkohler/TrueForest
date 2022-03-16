@@ -95,7 +95,7 @@ Then create a datafolder expanding the above folder structure according to your 
 │               └── test
 ```
 
-**3) Download Data**
+**3) Download and process data**
 
 Use the files `GEE/NAIP_extraction.py` and `GEE/sentinel_extraction.py` to get the desired imagery downloaded onto your Google Drive. Now assign downloaded imagery to the data folder created in the previous step. Next, run `GEE/process_data.py` to convert the raw TIF files into PNG files of the proper dimensions. Few Example below:
 
@@ -105,7 +105,7 @@ python3 process_data.py --patch_size 224 --data_type test --location Central_Val
 python3 process_data.py --patch_size 448 --data_type test --location Florida
 ```
 
-This will expand the data folder in the following way:
+This three commands will expand the data folder in the following way:
 
 ```
 ├── data
@@ -130,7 +130,7 @@ This will expand the data folder in the following way:
 │               └── 448
 ```
 
-## End-to-end training and testing pipeline
+**4) End-to-end training and testing pipeline**
 
 Have a look at the image below to get a sense of the training and testing pipeline.
 
@@ -148,7 +148,7 @@ Step 2)-5) (creating embeddings, training classifier, prediction) are jointly pe
 python3 main.py --config custom --run_mode test_mult --patch_size 224 --clf MLP
 ```
 
-## Configuration files
+**5) Configuration files**
 
 To reproduce the scores presented in our report the interested user will mainly interact with the configuration files under `configs/`. Below you find a detailed list of available settings,flags, and variables:
 
