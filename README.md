@@ -152,7 +152,7 @@ python3 main.py --config custom --run_mode test_mult --patch_size 224 --clf MLP
 
 To reproduce the scores presented in our report the interested user will mainly interact with the configuration files under `configs/`. Below you find a detailed list of available settings,flags, and variables:
 
-## General settings
+##### General settings
 
 - seed [int]: To reproduce results, select seed for all random processes.
 - experiment_name [str]: provide name for your experiment. A matching dump folder will be created.
@@ -163,7 +163,7 @@ To reproduce the scores presented in our report the interested user will mainly 
 - patch_size [int]: Refers to the edge length of the images the model will be trained on. Available sizes are determined by the previously created data (see data folder structure).
 - location [List[str]]: provide a list with the train location (first entry in list) followed by all test locations.
 
-### Model specifications
+##### Model specifications
 
 - model_name [str]: name of the SSL architecture used. Choices are:
   - BarlowTwins
@@ -178,7 +178,7 @@ To reproduce the scores presented in our report the interested user will mainly 
 - num_hidden [int]: size of hidden layer in projection head. These numbers are taken from the original implementation of the corresponding SSL architecture.
 - num_projection [int]: output size of projection head. These numbers are taken from the original implementation of the corresponding SSL architecture.
 
-### Training parameters
+##### Training parameters
 
 - num_epochs [int]: number of epochs to train the model.
 - batch_size [int]: batch size while training.
@@ -187,7 +187,7 @@ To reproduce the scores presented in our report the interested user will mainly 
 - pin_memory [bool]: speeds up data transfer from CPU to GPU.
 - fp16_precision [bool]: half-precision to speed up training.
 
-### Learning rate parameters
+##### Learning rate parameters
 
 - init_lr/final_lr [float/float]: start/end of learning rate schedule.
 - momentum [float]: momentum parameter
@@ -195,18 +195,18 @@ To reproduce the scores presented in our report the interested user will mainly 
 - warm_up_epochs [int]: number of epochs where no weight update is performed
 - ema_factor [float]: parameter for weight update of momentum encoders
 
-### Model specific training parameter
+##### Model specific training parameter
 
 - temperature [float]: optional temperature parameter.
 - epsilon [float]: optional epsilon parameter.
 - queue_length [int]: optional queue length parameter
 
-### Transformation settings
+##### Transformation settings
 
 - transforms [float/bool]: selection of image transformation settings
 - normalize [bool]: whether to normalize tensor before feeding it through the model
 
-### Classifier
+##### Classifier
 
 - clf [str]: classifier for binary classification task. Choices are:
   - linear
