@@ -1,8 +1,6 @@
 from tabnanny import check
-from typing import Optional
-from fastapi import FastAPI, Response, status, HTTPException, Request, File, UploadFile, Form
-from fastapi.params import Body
-from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
+from fastapi import FastAPI, Request, File, UploadFile, Form
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import random
@@ -14,9 +12,6 @@ import torchvision.models as models
 import torch
 from torch import nn
 from torchvision.transforms import ToTensor
-
-import psycopg2
-from psycopg2.extras import RealDictCursor
 
 from pydantic import BaseModel
 

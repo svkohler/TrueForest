@@ -97,7 +97,11 @@ Then create a datafolder expanding the above folder structure according to your 
 
 **3) Download Data**
 
-Use the files `GEE/NAIP_extraction.py` and `GEE/sentinel_extraction.py` to get the desired imagery downloaded onto your Google Drive. Now assign downloaded imagery to the data folder created in the previous step. Next, run `GEE/process_data.py` to convert the raw TIF files into PNG files of the proper dimensions.
+Use the files `GEE/NAIP_extraction.py` and `GEE/sentinel_extraction.py` to get the desired imagery downloaded onto your Google Drive. Now assign downloaded imagery to the data folder created in the previous step. Next, run `GEE/process_data.py` to convert the raw TIF files into PNG files of the proper dimensions. Example below:
+
+```
+python3 process_data.py --patch_size 224 --data_type train --location Central_Valley
+```
 
 ## End-to-end training and testing pipeline
 
@@ -108,11 +112,11 @@ Have a look at the image below to get a sense of the training and testing pipeli
 Step 1) (training the encoder) can be performed by executing the following command in the terminal. Specify the SSL architecture in `custom.yaml` or choose a predefined configuration file.
 
 ```
-python3 main.py --config config_custom --run_mode train_encoder --batch_size 256 --patch_size 224
+python3 main.py --config custom --run_mode train_encoder --batch_size 256 --patch_size 224
 ```
 
-Step 2)-5) (creating embeddings, training classifier, testing) are jointly performed by this command
+Step 2)-5) (creating embeddings, training classifier, prediction) are jointly performed by this command
 
 ```
-python3 main.py --config config_custom --run_mode test_mult --patch_size 224 --clf MLP
+python3 main.py --config custom --run_mode test_mult --patch_size 224 --clf MLP
 ```

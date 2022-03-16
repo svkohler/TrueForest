@@ -9,7 +9,6 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from torchvision.transforms import ToTensor
 from PIL import Image
-import torch.nn.functional as F
 
 
 def seed_all(seed):
@@ -306,22 +305,6 @@ def create_datasets(config):
         test_dataset[loc] = TrueForestDataset(
             config, location=loc, mode='test', transform=False)
         print(f'Created train dataset for {loc}')
-
-    # if config.location == 'all':
-    #     config.location = 'Central_Valley'
-    #     train_dataset = TrueForestDataset(config, mode='train')
-    #     for loc in ['Central_Valley', 'Florida', 'Louisiana', 'Tennessee', 'Phoenix']:
-    #         config.location = loc
-    #         test_dataset[loc] = TrueForestDataset(
-    #             config, mode='test', transform=False)
-    #     config.location = 'all'
-    # else:
-    #     swap = config.location
-    #     config.location = 'Central_Valley'
-    #     train_dataset = TrueForestDataset(config, mode='train')
-    #     config.location = swap
-    #     test_dataset[config.location] = TrueForestDataset(
-    #         config, mode='test', transform=False)
 
     return train_dataset, test_dataset
 

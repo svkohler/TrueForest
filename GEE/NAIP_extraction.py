@@ -6,6 +6,12 @@ import numpy as np
 # ee.Authenticate()
 ee.Initialize()
 
+'''
+File to extract NAIP imagery from Google Earth Engine
+
+Please enter the desired coordinates below
+'''
+
 # 30.93605976603369  # 35.236  #  32.60215788172933 # 30.025215750666348
 START_NORTH = 32.60215788172933
 # 30.98934617733734  # 35.377  # 32.738568513477766  # 30.139294239374312

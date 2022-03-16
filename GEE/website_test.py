@@ -81,4 +81,4 @@ import pickle
 with open('/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/data/website_test/coordinates_images.pickle', 'rb') as handle:
     b = pickle.load(handle)
 
-print(b['tile_448-3584.tif'])
+print(b['tile_2688-15232.tif'])
