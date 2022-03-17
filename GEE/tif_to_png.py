@@ -28,7 +28,7 @@ class tif2png():
         patch_size_naip = patch_size / res_naip
         patch_size_sentinel = patch_size / res_sentinel
 
-        if not os.path.exists(paths['sat_rgb']):
+        if not os.path.exists(paths['sat']):
             os.makedirs(paths['sat_rgb'])
 
         if not os.path.exists(paths['drone']):
@@ -46,13 +46,13 @@ class tif2png():
                 if config.model_name == 'MetricLearning':
                     os.makedirs(paths['drone'] + '/' + str(self.counter))
                     sentinel_rgb_crop.save(
-                        paths['sat_rgb'] + '/' + str(self.counter)+'/sentinel_'+str(self.counter)+'.png')
+                        paths['sat'] + '/' + str(self.counter)+'/sentinel_'+str(self.counter)+'.png')
 
                     naip_crop.save(
                         paths['drone'] + '/' + str(self.counter)+'/drone_'+str(self.counter)+'.png')
                 else:
                     sentinel_rgb_crop.save(
-                        paths['sat_rgb'] + '/satellite_' + str(self.counter)+'.png')
+                        paths['sat'] + '/satellite_' + str(self.counter)+'.png')
 
                     naip_crop.save(paths['drone'] + '/drone_' +
                                    str(self.counter)+'.png')

@@ -304,7 +304,7 @@ def create_datasets(config):
     for loc in config.location[1:]:
         test_dataset[loc] = TrueForestDataset(
             config, location=loc, mode='test', transform=False)
-        print(f'Created test dataset for {loc}')
+        print(f'Created train dataset for {loc}')
 
     return train_dataset, test_dataset
 

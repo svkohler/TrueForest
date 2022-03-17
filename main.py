@@ -134,8 +134,6 @@ if config.run_mode in ['test_mult']:
     train_embeddings = get_train_embeddings(config)
     test_embeddings = get_test_embeddings(config)
 
-    similarity_embeddings(train_embeddings, config)
-
     test_mult(config, device, train_embeddings,
               test_embeddings, num_runs=config.num_runs)
 
@@ -151,9 +149,7 @@ if config.run_mode in ['compute_similarities']:
 if config.run_mode in ['train_classifier']:
 
     create_embeddings(config, model, tester)
-    train_embeddings = get_test_embeddings(config)
-    print(train_embeddings['Central_Valley'].shape)
-    print(train_embeddings['Central_Valley'][0])
+    train_embeddings = get_train_embeddings(config)
 
     classify(config, train_embeddings, device)
 

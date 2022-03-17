@@ -8,7 +8,7 @@ run_mode: "train_encoder" # choices: train_encoder, test_mult, train_classifier
 
 # data information
 patch_size: 224
-location: ["Central_Valley"]
+location: ["Central_Valley", "Central_Valley"]
 
 # model specifications
 model_name: "SimSiam"

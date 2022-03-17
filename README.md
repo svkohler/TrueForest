@@ -4,7 +4,7 @@ Welcome!
 
 This is the Git Repository of Sven Kohler containing the code to reproduce the data and experimental results for my Master's thesis _Towards Trusted Self-Reports With Foundational Models_.
 
-## Directory Structure
+## Directory structure and content
 
 ```
 ├── API
@@ -159,6 +159,7 @@ To reproduce the scores presented in our report the interested user will mainly 
 - run_mode [str]: choices below:
   - train_encoder: choose this mode to train the elected SSL architecture and save the weights in your dump path.
   - test_mult: chose this mode to create embeddings, train the chosen classifier and predict on test data. This will be repeated for a given number of iterations. At each iteration the model accuracy is recorded.
+  - compute_similarities: This mode does compute COS and MSE in the embedding space.
   - train_classifier: this mode is specifically for training a single classifier for later implementation in the web-based verification system.
 - patch_size [int]: Refers to the edge length of the images the model will be trained on. Available sizes are determined by the previously created data (see data folder structure).
 - location [List[str]]: provide a list with the train location (first entry in list) followed by all test locations.

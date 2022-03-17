@@ -12,7 +12,7 @@ import numpy as np
 from PIL import Image
 import os
 import sys
-from ..utils import paths_setter
+from utils import paths_setter
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--patch_size',
