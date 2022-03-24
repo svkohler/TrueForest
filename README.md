@@ -53,7 +53,7 @@ pip3 install -r requirements.txt
 
 **2) Setup paths and data folder**
 
-Next, update the path variables under `utils.py` in the paths_setter() function:
+Next, update the path variables under `utils.py` and `GEE/utils.py` in the paths_setter() function:
 
 ```
 def paths_setter(hostname, config):

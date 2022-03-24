@@ -29,7 +29,7 @@ class tif2png():
         patch_size_sentinel = patch_size / res_sentinel
 
         if not os.path.exists(paths['sat']):
-            os.makedirs(paths['sat_rgb'])
+            os.makedirs(paths['sat'])
 
         if not os.path.exists(paths['drone']):
             os.makedirs(paths['drone'])

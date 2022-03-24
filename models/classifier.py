@@ -16,6 +16,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix
 import xgboost as xgb
 from torch import nn
+import torch.nn.functional as F
 
 
 def create_embeddings(config, model, tester):
@@ -204,13 +205,16 @@ def save_clf(classifier, config):
 
     '''
 
+    if not os.path.exists(config.dump_path+'/clf'):
+        os.makedirs(config.dump_path+'/clf')
+
     if config.clf == 'linear':
         torch.save(classifier.state_dict(), config.dump_path +
-                   '/' + config.model_name + '_linear_classifier.pth')
+                   '/clf/' + config.model_name + '_linear_classifier.pth')
 
     if config.clf == 'xgboost':
         classifier.save_model(
-            config.dump_path + '/' + config.model_name + '_xgboost_classifier.json')
+            config.dump_path + '/clf/' + config.model_name + '_xgboost_classifier.json')
 
     if config.clf == 'random_forest':
         joblib.dump(classifier, config.dump_path + '/clf/' +
@@ -383,7 +387,7 @@ class MLP_classifier(nn.Module):
 
     def save_model(self, config):
         torch.save(self.model.state_dict(), config.dump_path +
-                   '/clf/'+'_'+config.model_name+str(config.patch_size)+'.pth')
+                   '/clf/'+config.model_name+str(config.patch_size)+'.pth')
 
 
 # -------------------- Extreme Gradient Boosting -------------------- #

@@ -31,7 +31,7 @@ device = torch.device('cpu')
 model = ResNetSimCLR(models.__dict__['resnet50'])
 model = nn.DataParallel(model)
 checkpoint = torch.load(
-    './static/preloaded_models/SimCLR_best_epoch_224.pth', map_location=device)
+    './static/preloaded_models/SimCLR_best_epoch_448.pth', map_location=device)
 model.load_state_dict(checkpoint['model_state_dict'])
 encoder = nn.Sequential(
     *list(model.module.encoder.children())[:-1])
@@ -41,7 +41,7 @@ print('Successfully built encoder')
 
 clf = MLP(4096, 100, 1)
 clf.load_state_dict(torch.load(
-    './static/preloaded_models/SimCLR224.pth', map_location=device))
+    './static/preloaded_models/SimCLR448.pth', map_location=device))
 print('Successfully built classifier')
 
 

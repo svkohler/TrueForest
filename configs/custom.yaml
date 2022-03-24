@@ -1,7 +1,7 @@
 # Set seed for reproducability
 seed: 36573 # [seed 1: 36573, seed 2: 90708, seed 3: 23012]
 
-experiment_name: "test"
+experiment_name: "pretrained"
 
 # run mode
 run_mode: "train_encoder" # choices: train_encoder, test_mult, train_classifier
@@ -11,7 +11,7 @@ patch_size: 224
 location: ["Central_Valley", "Central_Valley"]
 
 # model specifications
-model_name: "SimSiam"
+model_name: "SimCLR"
 base_architecture: "resnet50" # choices: resnet50, resnet101, wide_resnet50_2, wide_resnet101_2
 pretrained: True
 num_features: 2048 # size of feature vector which is used for loss function
