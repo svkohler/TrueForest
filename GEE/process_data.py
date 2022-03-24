@@ -40,9 +40,10 @@ IMAGE_SIZE: 224
 # load config
 try:
     config = Box.from_yaml(
-        filename="/home/svkohler/OneDrive/Desktop/Masterthesis/Code/TrueForest/configs/custom.yaml")
+        filename="insert path to custom.yaml here (where model_name has to be specified in case of Metric Learning")
 except:
-    raise OSError("Does not exist")
+    raise OSError(
+        "Does not exist or please insert path to custom.yaml (line 43)")
 
 hostname = socket.gethostname()
 paths_setter(hostname, config)
